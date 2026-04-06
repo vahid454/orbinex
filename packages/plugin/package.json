@@ -1,0 +1,15 @@
+{
+  "name": "@orbinex/plugin",
+  "version": "0.1.0",
+  "description": "Embeddable AI chat widget — drop onto any website with one script tag",
+  "main": "./dist/orbinex.js",
+  "scripts": {
+    "dev":   "vite",
+    "build": "vite build",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0",
+    "typescript": "^5.4.0"
+  }
+}
