@@ -3,56 +3,42 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Orbinex — Test</title>
+  <title>Orbinex — Dev</title>
   <style>
-    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-         max-width:860px;margin:60px auto;padding:0 24px;color:#333;background:#fafafa}
-    h1{color:#6C5CE7;margin-bottom:4px}
-    .tag{display:inline-block;background:#6C5CE7;color:#fff;font-size:11px;
-         padding:2px 8px;border-radius:20px;margin-left:8px;vertical-align:middle}
-    p{color:#555;margin:8px 0 20px}
-    h2{margin:28px 0 10px;font-size:16px;color:#444}
-    ul{color:#555;line-height:2}
-    em{color:#6C5CE7}
-    code{background:#eee;padding:2px 6px;border-radius:4px;font-size:12px;font-family:monospace}
-    pre{background:#1e1e2e;color:#cdd6f4;padding:18px;border-radius:10px;
-        font-size:13px;overflow-x:auto;line-height:1.6}
-    .tip{background:#f0edff;border-left:3px solid #6C5CE7;
-         padding:12px 16px;border-radius:0 8px 8px 0;margin:20px 0;font-size:14px}
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f7; min-height: 100vh; }
+    .hero { max-width: 760px; margin: 0 auto; padding: 60px 24px 80px; }
+    h1 { font-size: 42px; font-weight: 700; color: #1d1d1f; letter-spacing: -.03em; margin-bottom: 12px; }
+    h1 span { color: #6C5CE7; }
+    .sub { font-size: 18px; color: #666; margin-bottom: 40px; line-height: 1.55; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; margin-bottom: 40px; }
+    .card { background: #fff; border-radius: 14px; padding: 18px; border: 1px solid #e5e5e5; }
+    .card-icon { font-size: 24px; margin-bottom: 8px; }
+    .card-title { font-weight: 600; font-size: 14px; color: #1d1d1f; margin-bottom: 4px; }
+    .card-desc { font-size: 12px; color: #888; line-height: 1.5; }
+    .card em { color: #6C5CE7; font-style: normal; font-family: monospace; font-size: 11px; display: block; margin-top: 6px; }
+    .tip { background: #f0edff; border-radius: 12px; padding: 16px 20px; font-size: 13px; color: #444; line-height: 1.6; }
+    .tip code { background: #e0dbff; padding: 1px 6px; border-radius: 4px; font-family: monospace; font-size: 12px; }
+    .arrow { position: fixed; bottom: 96px; right: 44px; font-size: 12px; color: #6C5CE7; font-weight: 500; transform: rotate(15deg); pointer-events: none; }
   </style>
 </head>
 <body>
-  <h1>Orbinex <span class="tag">dev</span></h1>
-  <p>Chat bubble is in the <strong>bottom-right corner</strong>. Click it to open.</p>
-
-  <div class="tip">
-    Make sure the engine is running at <code>http://localhost:3001</code> and
-    the MCP server at <code>http://localhost:3002</code> before chatting.
+  <div class="hero">
+    <h1>Orbinex <span>AI</span></h1>
+    <p class="sub">Your pluggable AI assistant. Click the chat bubble to start.</p>
+    <div class="cards">
+      <div class="card"><div class="card-icon">🌤</div><div class="card-title">Weather</div><div class="card-desc">Live conditions for any city.<em>"Weather in Tokyo"</em></div></div>
+      <div class="card"><div class="card-icon">🧮</div><div class="card-title">Calculator</div><div class="card-desc">Math & expressions.<em>"(15*4)/3 + 2^8"</em></div></div>
+      <div class="card"><div class="card-icon">💱</div><div class="card-title">Currency</div><div class="card-desc">Live exchange rates.<em>"100 USD to INR"</em></div></div>
+      <div class="card"><div class="card-icon">🌍</div><div class="card-title">City Tour</div><div class="card-desc">City guide & info.<em>"Tell me about Paris"</em></div></div>
+      <div class="card"><div class="card-icon">🏛</div><div class="card-title">Countries</div><div class="card-desc">Capital, flag, stats.<em>"Info on Germany"</em></div></div>
+      <div class="card"><div class="card-icon">📏</div><div class="card-title">Unit Convert</div><div class="card-desc">Any unit conversion.<em>"5 miles to km"</em></div></div>
+      <div class="card"><div class="card-icon">🕐</div><div class="card-title">Date & Time</div><div class="card-desc">Current date/time.<em>"Time in New York"</em></div></div>
+      <div class="card"><div class="card-icon">📰</div><div class="card-title">News</div><div class="card-desc">Latest headlines.<em>"AI news today"</em></div></div>
+    </div>
+    <div class="tip">Engine: <code>localhost:3001</code> · MCP: <code>localhost:3002</code> · Model: <code>qwen2.5 (Ollama)</code><br>Run <code>npm run dev</code> to start all services.</div>
   </div>
-
-  <h2>Try asking</h2>
-  <ul>
-    <li><em>"What is the weather in Mumbai?"</em> — live weather via open-meteo</li>
-    <li><em>"Tell me about Tokyo"</em> — city tour tool</li>
-    <li><em>"What is the capital of France?"</em> — country capital tool</li>
-    <li><em>"What is the exchange rate of USD to INR?"</em> — live currency tool</li>
-    <li><em>"Show me experience data"</em> — hits your local API at localhost:5017</li>
-    <li><em>"What is Orbinex?"</em> — searches your docs via RAG</li>
-  </ul>
-
-  <h2>Quick embed snippet</h2>
-  <pre>&lt;script
-  src="https://cdn.yourdomain.com/orbinex.js"
-  data-tenant="YOUR_TENANT_ID"
-  data-engine="https://engine.yourdomain.com"
-  data-color="#6C5CE7"
-  data-title="Support Chat"
-  data-welcome="Hi! How can I help?"
-&gt;&lt;/script&gt;</pre>
+  <div class="arrow">← Click me!</div>
+  <script type="module" src="/src/entry.ts"></script>
 </body>
-
-<!-- entry.ts is type=module so Vite transpiles it in dev mode.
-     This is fine because entry.ts hardcodes the dev config directly —
-     it does NOT rely on document.currentScript. -->
-<script type="module" src="/src/entry.ts"></script>
 </html>

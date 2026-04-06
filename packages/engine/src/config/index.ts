@@ -1,3 +1,5 @@
+import { SYSTEM_PROMPT } from '../prompts/system'
+
 // ═══════════════════════════════════════════════════════════
 //  Orbinex Engine — central config
 //  Edit this file to change LLM provider, model, and limits.
@@ -12,8 +14,8 @@ export interface OrbinexConfig {
   //   anthropic → 'claude-sonnet-4-20250514' | 'claude-haiku-4-5-20251001'
   //   openai    → 'gpt-4o' | 'gpt-4o-mini'
   //   google    → 'gemini-1.5-pro' | 'gemini-1.5-flash'
-  //   ollama    → 'llama3.1' | 'llama3.2' | 'mistral-nemo' | 'qwen2.5'
-  //              ⚠ llama3 (non-numbered) does NOT support tools — use llama3.1+
+  //   ollama    → 'qwen2.5' (best) | 'llama3.1' | 'llama3.2' | 'mistral-nemo'
+  //              Uses Ollama native API — reliable tool calling
   model: string
 
   // API key — leave blank for Ollama (runs locally, no key needed)
@@ -33,14 +35,15 @@ export interface OrbinexConfig {
   // ── System prompt ─────────────────────────────────────────
   // This is sent as the system message to every conversation.
   systemPrompt: string
+  promptCaching: boolean   // Anthropic only: cache system prompt
 }
 
 const config: OrbinexConfig = {
   // ── CHANGE THIS to switch provider ───────────────────────
   provider:    (process.env.LLM_PROVIDER as OrbinexConfig['provider']) ?? 'ollama',
-  model:        process.env.LLM_MODEL    ?? 'llama3.1',   // llama3.1+ supports tool calling
+  model:        process.env.LLM_MODEL    ?? 'qwen2.5',
   apiKey:       process.env.LLM_API_KEY  ?? undefined,
-  baseUrl:      process.env.LLM_BASE_URL ?? 'http://localhost:11434/v1',
+  baseUrl:      process.env.LLM_BASE_URL ?? 'http://localhost:11434',
 
   // ── Generation params ─────────────────────────────────────
   maxTokens:   Number(process.env.LLM_MAX_TOKENS   ?? 1024),
@@ -50,10 +53,8 @@ const config: OrbinexConfig = {
   maxHistoryMessages: Number(process.env.MAX_HISTORY ?? 20),
 
   // ── System prompt ─────────────────────────────────────────
-  systemPrompt: process.env.SYSTEM_PROMPT ??
-    `You are a helpful AI assistant powered by Orbinex.
-You have access to tools — use them whenever they would help answer the user's question.
-Be concise, accurate, and friendly.`,
+  systemPrompt:   process.env.SYSTEM_PROMPT ?? SYSTEM_PROMPT,
+  promptCaching:  process.env.PROMPT_CACHING !== 'false',
 }
 
 export default config

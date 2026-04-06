@@ -9,7 +9,7 @@ const cfg: WidgetConfig = {
   primaryColor:   '#6C5CE7',
   title:          'Orbinex AI',
   placeholder:    'Ask me anything…',
-  welcomeMessage: 'Hi! I can help with weather, cities, currencies, or search your documents. What would you like to know?',
+  welcomeMessage: 'Hi! I can help with **weather**, **cities**, **currencies**, **calculations**, **news**, and search your documents. What would you like to know?',
 }
 
 new OrbinexWidget(cfg).mount()
