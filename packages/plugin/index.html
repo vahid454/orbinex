@@ -3,42 +3,51 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Orbinex — Dev</title>
+  <title>Orbinex AI — Dev</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f7; min-height: 100vh; }
-    .hero { max-width: 760px; margin: 0 auto; padding: 60px 24px 80px; }
-    h1 { font-size: 42px; font-weight: 700; color: #1d1d1f; letter-spacing: -.03em; margin-bottom: 12px; }
-    h1 span { color: #6C5CE7; }
-    .sub { font-size: 18px; color: #666; margin-bottom: 40px; line-height: 1.55; }
-    .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; margin-bottom: 40px; }
-    .card { background: #fff; border-radius: 14px; padding: 18px; border: 1px solid #e5e5e5; }
-    .card-icon { font-size: 24px; margin-bottom: 8px; }
-    .card-title { font-weight: 600; font-size: 14px; color: #1d1d1f; margin-bottom: 4px; }
-    .card-desc { font-size: 12px; color: #888; line-height: 1.5; }
-    .card em { color: #6C5CE7; font-style: normal; font-family: monospace; font-size: 11px; display: block; margin-top: 6px; }
-    .tip { background: #f0edff; border-radius: 12px; padding: 16px 20px; font-size: 13px; color: #444; line-height: 1.6; }
-    .tip code { background: #e0dbff; padding: 1px 6px; border-radius: 4px; font-family: monospace; font-size: 12px; }
-    .arrow { position: fixed; bottom: 96px; right: 44px; font-size: 12px; color: #6C5CE7; font-weight: 500; transform: rotate(15deg); pointer-events: none; }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f7;min-height:100vh;color:#1d1d1f}
+    .page{max-width:720px;margin:0 auto;padding:64px 24px 100px}
+    h1{font-size:44px;font-weight:700;letter-spacing:-.03em;margin-bottom:10px}
+    h1 em{font-style:normal;background:linear-gradient(135deg,#6C5CE7,#a29bfe);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+    .lead{font-size:18px;color:#555;margin-bottom:44px;line-height:1.6}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:40px}
+    .card{background:#fff;border-radius:16px;padding:18px;border:1px solid #e5e5e5;transition:box-shadow .2s}
+    .card:hover{box-shadow:0 4px 20px rgba(0,0,0,.08)}
+    .card-em{font-size:22px;margin-bottom:8px}
+    .card-t{font-weight:600;font-size:14px;margin-bottom:4px}
+    .card-s{font-size:12px;color:#888;line-height:1.5}
+    .card-q{font-family:monospace;font-size:11px;color:#6C5CE7;margin-top:6px;background:#f0edff;padding:3px 7px;border-radius:4px;display:inline-block}
+    .box{background:#fff;border-radius:16px;padding:20px 24px;border:1px solid #e5e5e5}
+    .box h2{font-size:14px;font-weight:600;margin-bottom:10px;color:#555}
+    code{background:#f0edff;color:#6C5CE7;padding:2px 7px;border-radius:4px;font-family:monospace;font-size:12px}
+    pre{background:#1e1e2e;color:#cdd6f4;padding:16px;border-radius:12px;font-family:monospace;font-size:13px;line-height:1.6;overflow-x:auto;margin-top:10px}
+    .arrow-hint{position:fixed;bottom:90px;right:88px;font-size:12px;color:#6C5CE7;font-weight:600;transform:rotate(10deg);pointer-events:none;opacity:.8}
   </style>
 </head>
 <body>
-  <div class="hero">
-    <h1>Orbinex <span>AI</span></h1>
-    <p class="sub">Your pluggable AI assistant. Click the chat bubble to start.</p>
-    <div class="cards">
-      <div class="card"><div class="card-icon">🌤</div><div class="card-title">Weather</div><div class="card-desc">Live conditions for any city.<em>"Weather in Tokyo"</em></div></div>
-      <div class="card"><div class="card-icon">🧮</div><div class="card-title">Calculator</div><div class="card-desc">Math & expressions.<em>"(15*4)/3 + 2^8"</em></div></div>
-      <div class="card"><div class="card-icon">💱</div><div class="card-title">Currency</div><div class="card-desc">Live exchange rates.<em>"100 USD to INR"</em></div></div>
-      <div class="card"><div class="card-icon">🌍</div><div class="card-title">City Tour</div><div class="card-desc">City guide & info.<em>"Tell me about Paris"</em></div></div>
-      <div class="card"><div class="card-icon">🏛</div><div class="card-title">Countries</div><div class="card-desc">Capital, flag, stats.<em>"Info on Germany"</em></div></div>
-      <div class="card"><div class="card-icon">📏</div><div class="card-title">Unit Convert</div><div class="card-desc">Any unit conversion.<em>"5 miles to km"</em></div></div>
-      <div class="card"><div class="card-icon">🕐</div><div class="card-title">Date & Time</div><div class="card-desc">Current date/time.<em>"Time in New York"</em></div></div>
-      <div class="card"><div class="card-icon">📰</div><div class="card-title">News</div><div class="card-desc">Latest headlines.<em>"AI news today"</em></div></div>
-    </div>
-    <div class="tip">Engine: <code>localhost:3001</code> · MCP: <code>localhost:3002</code> · Model: <code>qwen2.5 (Ollama)</code><br>Run <code>npm run dev</code> to start all services.</div>
+<div class="page">
+  <h1>Orbinex <em>AI</em></h1>
+  <p class="lead">Your pluggable AI chat assistant. Click the purple bubble in the bottom-right corner to start.</p>
+  <div class="grid">
+    <div class="card"><div class="card-em">🌤</div><div class="card-t">Weather</div><div class="card-s">Live conditions worldwide</div><div class="card-q">weather in Tokyo</div></div>
+    <div class="card"><div class="card-em">🧮</div><div class="card-t">Calculator</div><div class="card-s">Safe math expression parser</div><div class="card-q">(15*4)/3 + 2^8</div></div>
+    <div class="card"><div class="card-em">💱</div><div class="card-t">Currency</div><div class="card-s">Live exchange rates</div><div class="card-q">100 USD to INR</div></div>
+    <div class="card"><div class="card-em">🌍</div><div class="card-t">City Tour</div><div class="card-s">Wikipedia + geo data</div><div class="card-q">tell me about Paris</div></div>
+    <div class="card"><div class="card-em">🏛</div><div class="card-t">Countries</div><div class="card-s">Capital, flag, population</div><div class="card-q">info on Germany</div></div>
+    <div class="card"><div class="card-em">📏</div><div class="card-t">Units</div><div class="card-s">Length, weight, temp...</div><div class="card-q">5 miles to km</div></div>
+    <div class="card"><div class="card-em">🕐</div><div class="card-t">Date & Time</div><div class="card-s">Any timezone, IANA</div><div class="card-q">time in New York</div></div>
+    <div class="card"><div class="card-em">📰</div><div class="card-t">News</div><div class="card-s">Hacker News + GNews</div><div class="card-q">AI news today</div></div>
+    <div class="card"><div class="card-em">📚</div><div class="card-t">RAG Docs</div><div class="card-s">Search your documents</div><div class="card-q">what is Orbinex?</div></div>
+    <div class="card"><div class="card-em">👤</div><div class="card-t">Experience</div><div class="card-s">Your profile API</div><div class="card-q">show experience</div></div>
   </div>
-  <div class="arrow">← Click me!</div>
-  <script type="module" src="/src/entry.ts"></script>
+  <div class="box">
+    <h2>Services needed</h2>
+    <code>localhost:3001</code> Engine &nbsp;·&nbsp; <code>localhost:3002</code> MCP Server &nbsp;·&nbsp; <code>ollama serve</code> (qwen2.5)
+    <pre>npm run dev   # starts everything</pre>
+  </div>
+</div>
+<div class="arrow-hint">← Click me!</div>
+<script type="module" src="/src/entry.ts"></script>
 </body>
 </html>
