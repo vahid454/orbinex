@@ -67,6 +67,18 @@ export function createStyles(cfg: WidgetConfig): string {
   /* Geometry */
   --r: 24px;
   --t: .2s;
+
+  /* Premium spacing & typography */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 24px;
+
+  --font-sm: 12px;
+  --font-md: 14px;
+  --font-lg: 16px;
+  --font-xl: 18px;
 }
 
 /* Dark mode */
@@ -98,6 +110,7 @@ export function createStyles(cfg: WidgetConfig): string {
               opacity .25s ease,
               transform .25s ease;
   position: relative;
+  backdrop-filter: blur(8px);
 }
 #obx-btn:hover {
   transform: scale(1.08);
@@ -128,8 +141,8 @@ export function createStyles(cfg: WidgetConfig): string {
   position: absolute;
   ${edge}: 0;
   bottom: 76px;
-  width: 420px;
-  height: 640px;
+  width: 460px;
+  height: 700px;
   background: var(--bg);
   border-radius: var(--r);
   box-shadow: var(--shadow);
@@ -138,6 +151,8 @@ export function createStyles(cfg: WidgetConfig): string {
   overflow: hidden;
   transform-origin: ${origin};
   animation: obx-open .28s cubic-bezier(.32, 1.12, .64, 1);
+  backdrop-filter: blur(8px);
+  will-change: transform;
 }
 #obx-win[hidden] { display: none; }
 
@@ -198,15 +213,28 @@ export function createStyles(cfg: WidgetConfig): string {
 .obx-hist-sub { font-size: 11px; color: var(--tx3); margin-top: 1px; }
 
 /* New conversation button */
-.obx-new-btn {
-  display: flex; align-items: center; gap: 7px;
-  margin: 12px; padding: 10px 14px;
-  background: var(--p); color: #fff;
-  border: none; border-radius: 14px;
-  cursor: pointer;
-  font-size: 13px; font-weight: 500; font-family: inherit;
-  transition: opacity .15s, transform .1s;
-  flex-shrink: 0;
+.obx-new-btn{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+
+  width:calc(100% - 24px);
+  margin:12px;
+
+  padding:12px 16px;
+  background:var(--p);
+  color:#fff;
+  border:none;
+  border-radius:12px;
+
+  cursor:pointer;
+  font-size:13px;
+  font-weight:500;
+  font-family:inherit;
+
+  transition:opacity .15s,transform .1s;
+  flex-shrink:0;
 }
 .obx-new-btn svg { width: 15px; height: 15px; stroke: #fff; }
 .obx-new-btn:hover  { opacity: .9; }
@@ -227,7 +255,10 @@ export function createStyles(cfg: WidgetConfig): string {
   transition: background .15s;
   margin-bottom: 3px;
 }
-.obx-si:hover  { background: var(--bg2); }
+.obx-si:hover {
+  background: var(--bg2);
+  transform: translateX(2px);
+}
 .obx-si.act    { background: var(--p15); }
 .obx-si-ic     {
   width: 34px; height: 34px; border-radius: 10px;
@@ -263,7 +294,7 @@ export function createStyles(cfg: WidgetConfig): string {
 #obx-hd {
   height: 64px;
   display: flex; align-items: center; gap: 8px;
-  padding: 0 10px 0 14px;
+  padding: 0 var(--space-lg);
   border-bottom: 1px solid var(--bd);
   background: var(--bg);
   flex-shrink: 0;
@@ -317,7 +348,7 @@ export function createStyles(cfg: WidgetConfig): string {
 /* ── Messages Area ──────────────────────────────────────── */
 #obx-msgs {
   flex: 1; overflow-y: auto;
-  padding: 20px 16px;
+  padding: var(--space-xl) var(--space-lg);
   display: flex; flex-direction: column; gap: 4px;
   scroll-behavior: smooth;
 }
@@ -335,15 +366,18 @@ export function createStyles(cfg: WidgetConfig): string {
 }
 
 /* ── Message Rows ───────────────────────────────────────── */
-.obx-row   { display: flex; flex-direction: column; margin-bottom: 4px; }
+.obx-row   { display: flex; flex-direction: column; margin-bottom: 6px; }
 .obx-row-u { align-items: flex-end; }
 .obx-row-a { align-items: flex-start; }
 .obx-row-u + .obx-row-u,
-.obx-row-a + .obx-row-a { margin-top: -2px; }
+.obx-row-a + .obx-row-a {
+  margin-top: 2px;
+}
 
 .obx-inner {
   display: flex; align-items: flex-end; gap: 8px;
-  max-width: 88%;
+  max-width: 80%;
+  align-items: flex-end;
 }
 .obx-row-u .obx-inner { flex-direction: row-reverse; }
 
@@ -359,25 +393,41 @@ export function createStyles(cfg: WidgetConfig): string {
 
 /* ── Message Bubbles — Messenger style ──────────────────── */
 .obx-bbl {
-  padding: 10px 14px;
-  font-size: 14px; line-height: 1.65;
-  word-break: break-word; overflow-wrap: break-word;
+  padding: 12px 16px;
+  font-size: var(--font-md);
+  line-height: 1.7;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+  display: inline-block;
 }
 
 /* User — tail bottom-right */
 .obx-row-u .obx-bbl {
   background: var(--p); color: #fff;
   border-radius: 20px 20px 6px 20px;
+   box-shadow: 0 4px 12px color-mix(in srgb, var(--p) 25%, transparent);
 }
 /* Assistant — tail bottom-left */
 .obx-row-a .obx-bbl {
   background: var(--bg2); color: var(--tx);
   border: 1px solid var(--bd);
   border-radius: 20px 20px 20px 6px;
+   box-shadow: 0 2px 8px rgba(0,0,0,0.06);
 }
 /* Consecutive same-sender → fully round (no tail) */
-.obx-row-u:has(+ .obx-row-u) .obx-bbl { border-radius: 20px; }
-.obx-row-a:has(+ .obx-row-a) .obx-bbl { border-radius: 20px; }
+.obx-row-u:not(:has(+ .obx-row-u)) .obx-bbl {
+  border-radius: 20px 20px 6px 20px;
+}
+.obx-row-u:has(+ .obx-row-u) .obx-bbl {
+  border-radius: 20px;
+}
+.obx-row-a:not(:has(+ .obx-row-a)) .obx-bbl {
+  border-radius: 20px 20px 20px 6px;
+}
+.obx-row-a:has(+ .obx-row-a) .obx-bbl {
+  border-radius: 20px;
+}
 
 /* ── Markdown Elements Inside Bubbles ───────────────────── */
 .obx-bbl p              { margin: 0 0 8px; }
@@ -547,7 +597,8 @@ export function createStyles(cfg: WidgetConfig): string {
 #obx-in {
   flex: 1;
   border: 1.5px solid var(--bd2);
-  border-radius: 22px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, var(--bg2), var(--bg));
   padding: 10px 16px;
   background: var(--bg2); color: var(--tx);
   font-size: 14px; font-family: inherit;
@@ -574,15 +625,15 @@ export function createStyles(cfg: WidgetConfig): string {
 .obx-upload-btn { color: var(--tx3); }
 
 #obx-send {
-  width: 40px; height: 40px; flex-shrink: 0;
+  width: 44px; height: 44px; flex-shrink: 0;
   border-radius: 50%;
   background: var(--p); color: #fff; border: none; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--p) 40%, transparent);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--p) 45%, transparent);
   transition: transform .12s, opacity .12s, background .18s;
 }
 #obx-send svg    { width: 16px; height: 16px; }
-#obx-send:hover  { opacity: .9; transform: scale(1.06); }
+#obx-send:hover  { opacity: .9; transform: scale(1.08) translateY(-1px); }
 #obx-send:active { transform: scale(.92); }
 #obx-send.stop   {
   background: #ff3b30;
@@ -635,6 +686,26 @@ export function createStyles(cfg: WidgetConfig): string {
 /* ── Responsive ─────────────────────────────────────────── */
 @media (max-width: 460px) {
   #obx-win { width: calc(100vw - 16px) !important; }
+}
+
+.obx-row {
+  animation: obx-fade-in 0.25s ease;
+}
+
+/* Fix bubble tearing & grouping */
+.obx-row-u .obx-inner,
+.obx-row-a .obx-inner {
+  gap: 6px;
+}
+
+.obx-row-u .obx-bbl,
+.obx-row-a .obx-bbl {
+  max-width: 100%;
+}
+
+@keyframes obx-fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 `
 }

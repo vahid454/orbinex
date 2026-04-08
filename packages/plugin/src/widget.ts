@@ -1,7 +1,7 @@
 import type { WidgetConfig } from './types'
 import { ChatApi } from './api'
 
-// ─── Icon library (Feather-style, crisp strokes) ─────────────────
+// ─── Icon library (Premium modern design) ─────────────────────
 const IC: Record<string, string> = {
   chat:    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`,
   send:    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`,
@@ -21,14 +21,19 @@ const IC: Record<string, string> = {
   check:   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>`,
   sparkle: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.4 7.2H22l-6.2 4.5 2.4 7.2L12 16.4l-6.2 4.5 2.4-7.2L2 9.2h7.6L12 2z"/></svg>`,
   chevronR:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>`,
+  pin:     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 0 18.8-4.3M22 12.5a10 10 0 0 0-18.8 4.2"/></svg>`,
 }
 
-// ─── Markdown renderer ────────────────────────────────────────────
+// ─── Markdown renderer (Premium) ──────────────────────────────
+function safeEncode(str: string): string { try { return btoa(unescape(encodeURIComponent(str))) } catch { return '' } }
+function safeDecode(str: string): string { try { return decodeURIComponent(escape(atob(str))) } catch { return str } }
 function md(raw: string): string {
   let s = raw.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
   s = s.replace(/```(\w*)\n?([\s\S]*?)```/g, (_,l,c) =>
-    `<div class="obx-pre"><div class="obx-pre-bar"><span class="obx-lang">${l||'code'}</span><button class="obx-pre-copy" onclick="navigator.clipboard?.writeText(this.nextElementSibling?.textContent||'')">Copy</button></div><code>${c.trim()}</code></div>`)
+    `<div class="obx-pre"><div class="obx-pre-bar"><span class="obx-lang">${l||'code'}</span><button class="obx-pre-copy" data-code="${safeEncode(c.trim())}">Copy</button></div><code>${c.trim()}</code></div>`)
   s = s.replace(/\x60([^\x60\n]+)\x60/g,'<code class="obx-ic">$1</code>')
+  // Support images
+  s = s.replace(/!\[([^\]]*)\]\(([^)]+)\)/g,'<div class="obx-img-wrap"><img src="$2" alt="$1" class="obx-img" loading="lazy"/><p class="obx-img-alt">$1</p></div>')
   s = s.replace(/^\|(.+)\|\r?\n\|[-:| ]+\|\r?\n((?:\|.+\|\r?\n?)+)/gm,(_,h,b)=>{
     const ths=h.split('|').filter((x:string)=>x.trim()).map((x:string)=>`<th>${x.trim()}</th>`).join('')
     const rows=b.trim().split('\n').map((r:string)=>'<tr>'+r.split('|').filter((x:string)=>x.trim()).map((x:string)=>`<td>${x.trim()}</td>`).join('')+'</tr>').join('')
@@ -46,7 +51,7 @@ function md(raw: string): string {
   s = s.replace(/((?:^[ \t]*\d+\. .+\n?)+)/gm,block=>'<ol>'+block.trim().split('\n').map((l:string)=>`<li>${l.replace(/^[ \t]*\d+\. /,'')}</li>`).join('')+'</ol>')
   return s.split(/\n{2,}/).map(b=>{
     const t=b.trim(); if(!t) return ''
-    if(/^<(h[1-6]|ul|ol|div|table|blockquote|hr|pre)/.test(t)) return t
+    if(/^<(h[1-6]|ul|ol|div|table|blockquote|hr|pre|img)/.test(t)) return t
     return `<p>${t.replace(/\n/g,'<br>')}</p>`
   }).join('')
 }
@@ -69,6 +74,8 @@ export class OrbinexWidget {
   private listening=false
   private recog:any=null
   private dragOn=false; private dx=0; private dy=0
+  private resizeOn=false; private resizeX=0; private resizeY=0
+  private uploadedDoc:string|null=null
 
   constructor(cfg:WidgetConfig){
     this.cfg=cfg
@@ -80,7 +87,9 @@ export class OrbinexWidget {
   private loadSessions(){
     try{this.sessions=JSON.parse(localStorage.getItem('obx_sessions')||'[]')}catch{this.sessions=[]}
     if(!this.sessions.length)this.newSession(false)
-    else this.sid=this.sessions[0].id
+    else {this.sid=this.sessions[0].id}
+    // Always initialize API even for existing sessions
+    this.api=new ChatApi(this.cfg.engineUrl,this.cfg.tenantId)
   }
   private newSession(render=true){
     const id='s'+Date.now()
@@ -94,62 +103,78 @@ export class OrbinexWidget {
   private ft(){return new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}
   private esc(s:string){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
 
-  // ─── CSS (premium redesign) ─────────────────────────────────────
+  // ─── CSS (Premium enterprise design) ────────────────────────────
   private css(){
     const p=this.cfg.primaryColor||'#6C5CE7'
     const right=this.cfg.position!=='bottom-left'
     return `
 #obx,#obx *,#obx *::before,#obx *::after{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased}
-#obx{position:fixed;${right?'right:24px':'left:24px'};bottom:24px;z-index:2147483646;
+#obx{position:fixed;${right?'right:20px':'left:20px'};bottom:20px;z-index:2147483646;
   font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;font-size:14px;
   --p:${p};--p15:color-mix(in srgb,${p} 15%,transparent);--p20:color-mix(in srgb,${p} 20%,transparent);
   --bg:#fff;--bg2:#f7f7f8;--bg3:#eeeef0;--bg4:#e5e5e7;
   --bd:rgba(0,0,0,.08);--bd2:rgba(0,0,0,.12);
   --tx:#111;--tx2:#555;--tx3:#aaa;
   --shadow:0 2px 8px rgba(0,0,0,.06),0 16px 48px rgba(0,0,0,.12),0 4px 16px rgba(0,0,0,.08);
-  --r:24px;--t:.2s;
+  --r:20px;--t:.2s;
 }
 #obx[data-theme=dark]{
-  --bg:#18181b;--bg2:#27272a;--bg3:#3f3f46;--bg4:#52525b;
+  --bg:#1a1a1e;--bg2:#26262d;--bg3:#3f3f46;--bg4:#52525b;
   --bd:rgba(255,255,255,.06);--bd2:rgba(255,255,255,.1);
   --tx:#fafafa;--tx2:#a1a1aa;--tx3:#71717a;
   --shadow:0 2px 8px rgba(0,0,0,.3),0 16px 48px rgba(0,0,0,.6);
 }
+#obx[data-theme=light]{
+  --bg:#ffffff;--bg2:#f5f5f5;--bg3:#ececec;--bg4:#d4d4d4;
+  --bd:rgba(0,0,0,.06);--bd2:rgba(0,0,0,.1);
+  --tx:#1a1a1a;--tx2:#595959;--tx3:#8b8b8b;
+  --shadow:0 2px 8px rgba(0,0,0,.08),0 16px 48px rgba(0,0,0,.12);
+}
 
-/* ─── Launcher ─── */
+/* Launcher button - premium float */
 #obx-btn{
-  width:60px;height:60px;border-radius:50%;border:none;cursor:pointer;
+  width:64px;height:64px;border-radius:50%;border:none;cursor:pointer;
   background:var(--p);color:#fff;
   display:flex;align-items:center;justify-content:center;
-  box-shadow:0 4px 12px rgba(0,0,0,.15),0 8px 24px color-mix(in srgb,var(--p) 40%,transparent);
-  transition:transform var(--t) cubic-bezier(.34,1.56,.64,1),box-shadow var(--t),opacity .25s;
+  box-shadow:0 8px 24px rgba(0,0,0,.15),0 4px 12px color-mix(in srgb,var(--p) 60%,transparent);
+  transition:transform .25s cubic-bezier(.34,1.56,.64,1),box-shadow .25s,opacity .25s;
   position:relative;
+  backdrop-filter:blur(12px);
+  border:1px solid rgba(255,255,255,.1);
 }
-#obx-btn:hover{transform:scale(1.08);box-shadow:0 6px 20px rgba(0,0,0,.2),0 12px 32px color-mix(in srgb,var(--p) 50%,transparent)}
-#obx-btn:active{transform:scale(.94)}
-#obx-btn svg{width:27px;height:27px}
-#obx-badge{position:absolute;top:-2px;right:-2px;min-width:20px;height:20px;padding:0 5px;
-  background:#ff3b30;border:2px solid white;border-radius:10px;
-  font-size:10px;font-weight:700;color:#fff;display:none;align-items:center;justify-content:center}
-#obx.open #obx-btn{opacity:0;pointer-events:none;transform:scale(.7) translateY(6px)}
+#obx-btn:hover{transform:scale(1.12);box-shadow:0 12px 32px rgba(0,0,0,.2),0 8px 20px color-mix(in srgb,var(--p) 50%,transparent)}
+#obx-btn:active{transform:scale(.92)}
+#obx-btn svg{width:28px;height:28px}
+#obx-btn{bottom:20px}/* Launcher button stays at bottom:20px */
+#obx-badge{position:absolute;top:-6px;right:-6px;min-width:22px;height:22px;padding:0 6px;
+  background:#ff3b30;border:2px solid white;border-radius:11px;
+  font-size:10px;font-weight:700;color:#fff;display:none;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(255,59,48,.4)}
+#obx.open #obx-btn{opacity:0;pointer-events:none;transform:scale(.6) translateY(8px)}
 
-/* ─── Window ─── */
+/* Chat window - premium fixed positioning */
 #obx-win{
-  position:absolute;${right?'right:0':'left:0'};bottom:76px;
-  width:420px;height:640px;
+  position:fixed;${right?'right:20px':'left:20px'};bottom:14px;
+  width:380px;height:520px;min-width:300px;min-height:400px;max-width:90vw;max-height:90vh;
   background:var(--bg);
   border-radius:var(--r);
-  box-shadow:var(--shadow);
+  box-shadow:var(--shadow),0 0 40px rgba(0,0,0,.1);
   border:1px solid var(--bd);
-  display:flex;overflow:hidden;
+  display:flex;overflow:hidden;backdrop-filter:blur(10px);
   transform-origin:${right?'bottom right':'bottom left'};
-  animation:obx-open .28s cubic-bezier(.32,1.12,.64,1);
+  animation:obx-open .3s cubic-bezier(.32,1.12,.64,1);
+  will-change:transform;
 }
 #obx-win[hidden]{display:none}
-@keyframes obx-open{from{opacity:0;transform:scale(.88) translateY(16px)}to{opacity:1;transform:scale(1) translateY(0)}}
-#obx-win.drag{transition:none;animation:none}
+#obx-resize{position:absolute;bottom:0;right:0;width:20px;height:20px;cursor:nwse-resize;
+  background:linear-gradient(135deg,transparent 60%,color-mix(in srgb,var(--p) 70%,#000) 60%);
+  border-radius:0 0 var(--r) 0;opacity:.25;transition:opacity .2s cubic-bezier(.34,.84,.68,1.08);
+  pointer-events:auto;z-index:10}
+#obx-win:hover #obx-resize{opacity:.9}
+#obx-resize:active{opacity:1;background:linear-gradient(135deg,transparent 60%,var(--p) 60%)}
+@keyframes obx-open{from{opacity:0;transform:scale(.82) translateY(24px);filter:blur(4px)}to{opacity:1;transform:scale(1) translateY(0);filter:blur(0)}}
+#obx-win.drag,#obx-win.resize{transition:none;animation:none}
 
-/* ─── History panel (absolute overlay) ─── */
+/* History panel */
 #obx-hist{
   position:absolute;inset:0 auto 0 0;
   width:0;overflow:hidden;
@@ -159,244 +184,257 @@ export class OrbinexWidget {
   border-radius:var(--r) 0 0 var(--r);
   border-right:1px solid var(--bd);
   transition:width .26s cubic-bezier(.4,0,.2,1);
-  box-shadow:none;
 }
-#obx-hist.on{width:300px;box-shadow:8px 0 32px rgba(0,0,0,.12)}
-/* close-hist-overlay — click outside to close */
-#obx-hist-bg{display:none;position:absolute;inset:0;z-index:19;background:rgba(0,0,0,.2);border-radius:var(--r)}
+#obx-hist.on{width:280px;box-shadow:12px 0 40px rgba(0,0,0,.15)}
+#obx-hist-bg{display:none;position:absolute;inset:0;z-index:19;background:rgba(0,0,0,.25);border-radius:var(--r)}
 #obx-hist.on ~ #obx-hist-bg{display:block}
 
 #obx-hist-hd{
-  height:64px;display:flex;align-items:center;justify-content:space-between;
+  height:68px;display:flex;align-items:center;justify-content:space-between;
   padding:0 16px;border-bottom:1px solid var(--bd);flex-shrink:0;
-  background:var(--bg);
 }
-.obx-hist-logo{display:flex;align-items:center;gap:10px}
-.obx-hist-av{width:36px;height:36px;border-radius:50%;
+.obx-hist-logo{display:flex;align-items:center;gap:12px}
+.obx-hist-av{width:40px;height:40px;border-radius:12px;
   background:linear-gradient(135deg,var(--p),color-mix(in srgb,var(--p) 60%,#000));
   display:flex;align-items:center;justify-content:center;
-  font-weight:700;font-size:13px;color:#fff;letter-spacing:.03em;flex-shrink:0}
-.obx-hist-lbl{font-size:15px;font-weight:600;color:var(--tx)}
-.obx-hist-sub{font-size:11px;color:var(--tx3);margin-top:1px}
+  font-weight:700;font-size:14px;color:#fff;flex-shrink:0}
+.obx-hist-lbl{font-size:14px;font-weight:600;color:var(--tx)}
+.obx-hist-sub{font-size:11px;color:var(--tx3);margin-top:2px}
 
 .obx-new-btn{
-  display:flex;align-items:center;gap:7px;
-  margin:12px;padding:10px 14px;
-  background:var(--p);color:#fff;border:none;border-radius:14px;
-  cursor:pointer;font-size:13px;font-weight:500;font-family:inherit;
-  transition:opacity .15s,transform .1s;flex-shrink:0;
-}
-.obx-new-btn svg{width:15px;height:15px;stroke:#fff}
-.obx-new-btn:hover{opacity:.9}
-.obx-new-btn:active{transform:scale(.97)}
+  display:flex;align-items:center;justify-content:center;gap:8px;margin:0;padding:16px;
+  background:linear-gradient(135deg,var(--p),color-mix(in srgb,var(--p) 85%,#000));
+  color:#fff;border:none;border-radius:0;cursor:pointer;font-size:14px;font-weight:600;font-family:inherit;
+  transition:all .15s;box-shadow:0 -2px 8px rgba(0,0,0,.05);width:100%;min-height:52px;box-sizing:border-box;border-bottom:1px solid rgba(255,255,255,.1)}
+#obx[data-theme=light] .obx-new-btn{
+  color:var(--tx);border-bottom-color:rgba(0,0,0,.08)}
+.obx-new-btn:hover{background:linear-gradient(135deg,color-mix(in srgb,var(--p) 110%,#fff),color-mix(in srgb,var(--p) 90%,#000));transform:translateY(-1px);box-shadow:0 -4px 12px rgba(0,0,0,.1)}
+.obx-new-btn:active{transform:translateY(0);box-shadow:inset 0 1px 2px rgba(0,0,0,.2)}
+.obx-new-btn svg{width:20px;height:20px;flex-shrink:0}
 
-#obx-sess{flex:1;overflow-y:auto;padding:6px 8px 16px}
-#obx-sess::-webkit-scrollbar{width:3px}
+#obx-sess{flex:1;overflow-y:auto;padding:8px 8px 16px}
+#obx-sess::-webkit-scrollbar{width:4px}
 #obx-sess::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:2px}
 
 .obx-si{
-  display:flex;align-items:center;gap:10px;
-  padding:10px 10px;border-radius:14px;cursor:pointer;
-  transition:background .15s;margin-bottom:3px;
+  display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;cursor:pointer;
+  transition:all .15s;margin-bottom:4px;
 }
-.obx-si:hover{background:var(--bg2)}
-.obx-si.act{background:var(--p15)}
-.obx-si-ic{width:34px;height:34px;border-radius:10px;background:var(--bg3);
-  display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+.obx-si:hover{background:var(--bg3);transform:translateX(2px)}
+.obx-si.act{background:var(--p15);border-left:3px solid var(--p);padding-left:9px}
+.obx-si-ic{width:36px;height:36px;border-radius:10px;background:var(--bg3);
+  display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
 .obx-si-tx{flex:1;min-width:0}
-.obx-si-t{font-size:13px;font-weight:500;color:var(--tx);
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.obx-si.act .obx-si-t{color:var(--p)}
+.obx-si-t{font-size:13px;font-weight:500;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.obx-si.act .obx-si-t{color:var(--p);font-weight:600}
 .obx-si-d{font-size:11px;color:var(--tx3);margin-top:2px}
-.obx-si-del{background:none;border:none;cursor:pointer;color:var(--tx3);
-  padding:4px;border-radius:7px;display:flex;opacity:0;transition:opacity .15s;flex-shrink:0}
-.obx-si-del svg{width:13px;height:13px}
+.obx-si-del{background:none;border:none;cursor:pointer;color:var(--tx3);padding:6px;border-radius:8px;display:flex;opacity:0;transition:all .15s;flex-shrink:0}
+.obx-si-del svg{width:14px;height:14px}
 .obx-si:hover .obx-si-del{opacity:1}
-.obx-si-del:hover{color:#ff3b30;background:rgba(255,59,48,.1)}
+.obx-si-del:hover{color:#ff3b30;background:rgba(255,59,48,.1);transform:scale(1.1)}
 
-/* ─── Main chat ─── */
+/* Main chat area */
 #obx-main{flex:1;display:flex;flex-direction:column;min-width:0;position:relative}
 
-/* ─── Header ─── */
+/* Header - ONLY for dragging, not clickable integration */
 #obx-hd{
-  height:64px;display:flex;align-items:center;gap:8px;
-  padding:0 10px 0 14px;
-  border-bottom:1px solid var(--bd);
-  background:var(--bg);flex-shrink:0;
-  cursor:grab;user-select:none;
+  height:68px;display:flex;align-items:center;gap:10px;
+  padding:0 16px;border-bottom:1px solid var(--bd);
+  background:linear-gradient(180deg,var(--bg) 0%,color-mix(in srgb,var(--bg) 95%,var(--p)) 100%);
+  flex-shrink:0;
+  user-select:none;cursor:grab;
+  box-shadow:0 2px 8px rgba(0,0,0,.04);
 }
 #obx-win.drag #obx-hd{cursor:grabbing}
-.obx-hd-av{width:38px;height:38px;border-radius:50%;flex-shrink:0;
-  background:linear-gradient(135deg,var(--p),color-mix(in srgb,var(--p) 55%,#000));
+.obx-hd-av{width:40px;height:40px;border-radius:12px;flex-shrink:0;
+  background:linear-gradient(135deg,var(--p),color-mix(in srgb,var(--p) 60%,#000));
   display:flex;align-items:center;justify-content:center;
-  font-weight:700;font-size:14px;color:#fff;letter-spacing:.02em}
-.obx-hd-info{flex:1;min-width:0}
+  font-weight:700;font-size:14px;color:#fff;pointer-events:none;user-select:none;
+  box-shadow:0 4px 12px color-mix(in srgb,var(--p) 35%,transparent);
+  animation:obx-avatar-pulse 3s ease-in-out infinite;
+}
+@keyframes obx-avatar-pulse{0%,100%{transform:scale(1);box-shadow:0 4px 12px color-mix(in srgb,var(--p) 35%,transparent)}50%{transform:scale(1.05);box-shadow:0 6px 16px color-mix(in srgb,var(--p) 50%,transparent)}}
+  box-shadow:0 4px 12px color-mix(in srgb,var(--p) 35%,transparent);
+  animation:obx-bounce 2s infinite;}
+@keyframes obx-bounce{0%,100%{transform:translateY(0);}50%{transform:translateY(-3px);}}
+.obx-hd-info{flex:1;min-width:0;pointer-events:none;user-select:none}
 .obx-hd-name{font-size:15px;font-weight:600;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .obx-hd-st{font-size:11px;color:var(--tx3);display:flex;align-items:center;gap:5px;margin-top:2px}
 .obx-dot{width:7px;height:7px;border-radius:50%;background:#22c55e;flex-shrink:0;
   animation:obx-pulse 2.5s infinite;box-shadow:0 0 0 0 rgba(34,197,94,.4)}
 @keyframes obx-pulse{0%,100%{box-shadow:0 0 0 0 rgba(34,197,94,.4)}60%{box-shadow:0 0 0 5px rgba(34,197,94,0)}}
-.obx-acts{display:flex;gap:2px}
+.obx-acts{display:flex;gap:4px}
 
-.obx-ib{width:34px;height:34px;border-radius:9px;background:none;border:none;
+.obx-ib{width:36px;height:36px;border-radius:10px;background:none;border:none;
   cursor:pointer;color:var(--tx2);display:flex;align-items:center;justify-content:center;
-  transition:background .12s,color .12s,transform .1s;flex-shrink:0}
-.obx-ib svg{width:17px;height:17px}
-.obx-ib:hover{background:var(--bg3);color:var(--tx)}
-.obx-ib:active{transform:scale(.88)}
+  transition:all .12s;flex-shrink:0;pointer-events:auto;user-select:none}
+.obx-ib svg{width:18px;height:18px}
+.obx-ib:hover{background:color-mix(in srgb,var(--p) 15%,transparent);color:var(--p);transform:scale(1.08);box-shadow:0 2px 8px color-mix(in srgb,var(--p) 20%,transparent)}
+.obx-ib:active{transform:scale(.92);background:color-mix(in srgb,var(--p) 25%,transparent)}
 
-/* ─── Messages ─── */
-#obx-msgs{flex:1;overflow-y:auto;padding:20px 16px;display:flex;flex-direction:column;gap:4px;scroll-behavior:smooth}
-#obx-msgs::-webkit-scrollbar{width:4px}
-#obx-msgs::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:2px}
+/* Messages */
+#obx-msgs{flex:1;overflow-y:auto;padding:20px 14px;display:flex;flex-direction:column;gap:4px;scroll-behavior:smooth;background:linear-gradient(180deg,var(--bg) 0%,color-mix(in srgb,var(--bg) 98%,var(--p)) 100%)}
+#obx-msgs::-webkit-scrollbar{width:6px}
+#obx-msgs::-webkit-scrollbar-track{background:transparent}
+#obx-msgs::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--bd2) 120%,#fff);border-radius:3px;transition:background .2s;box-shadow:inset 0 0 4px rgba(0,0,0,.1)}
+#obx-msgs::-webkit-scrollbar-thumb:hover{background:color-mix(in srgb,var(--bd2) 150%,#fff)}
 
 .obx-date{text-align:center;margin:16px 0 8px;user-select:none}
 .obx-date span{font-size:11px;color:var(--tx3);background:var(--bg2);
   padding:4px 14px;border-radius:20px;border:1px solid var(--bd)}
 
-/* Rows */
-.obx-row{display:flex;flex-direction:column;margin-bottom:4px}
-.obx-row-u{align-items:flex-end}
-.obx-row-a{align-items:flex-start}
-.obx-row-u+.obx-row-u,.obx-row-a+.obx-row-a{margin-top:-2px}
+.obx-row{display:flex;flex-direction:column;margin-bottom:4px;animation:obx-msg-enter .4s cubic-bezier(.34,.84,.68,1.08)}
+.obx-row-u{align-items:flex-end;animation-delay:.05s}
+.obx-row-a{align-items:flex-start;animation-delay:.08s}
+.obx-row-u+.obx-row-u,.obx-row-a+.obx-row-a{margin-top:2px}
 
-.obx-inner{display:flex;align-items:flex-end;gap:8px;max-width:88%}
+.obx-inner{display:flex;align-items:flex-end;gap:8px;max-width:85%;box-sizing:border-box;min-width:0}
 .obx-row-u .obx-inner{flex-direction:row-reverse}
 .obx-av-sm{width:28px;height:28px;border-radius:50%;flex-shrink:0;
   background:linear-gradient(135deg,var(--p),color-mix(in srgb,var(--p) 55%,#000));
   display:flex;align-items:center;justify-content:center;
   font-size:10px;font-weight:700;color:#fff;margin-bottom:2px}
 
-/* Bubbles - Messenger style */
+/* Bubbles */
 .obx-bbl{
-  padding:10px 14px;font-size:14px;line-height:1.65;
-  word-break:break-word;overflow-wrap:break-word;
+  padding:16px 20px;font-size:14px;line-height:1.65;
+  word-break:break-word;overflow-wrap:anywhere;word-wrap:break-word;
+  box-shadow:0 2px 8px rgba(0,0,0,0.05);
+  display:inline-block;border:1px solid transparent;max-width:100%;box-sizing:border-box;border-radius:16px;
 }
+.obx-bbl > *:first-child{margin-top:0}
+.obx-bbl > *:last-child{margin-bottom:0}
+
 .obx-row-u .obx-bbl{
-  background:var(--p);color:#fff;
-  border-radius:20px 20px 6px 20px;
-}
+  background:var(--p);color:#fff;border-radius:20px 20px 6px 20px;
+  box-shadow:0 4px 16px color-mix(in srgb,var(--p) 40%,transparent);border-color:rgba(255,255,255,.1)}
 .obx-row-a .obx-bbl{
-  background:var(--bg2);color:var(--tx);
-  border:1px solid var(--bd);
-  border-radius:20px 20px 20px 6px;
-}
-/* Consecutive - no tail */
+  background:var(--bg2);color:var(--tx);border:1px solid var(--bd);
+  border-radius:20px 20px 20px 6px;box-shadow:0 2px 8px rgba(0,0,0,0.06)}}
 .obx-row-u:has(+ .obx-row-u) .obx-bbl{border-radius:20px}
 .obx-row-a:has(+ .obx-row-a) .obx-bbl{border-radius:20px}
 
-/* Markdown in bubbles */
+/* Markdown */
 .obx-bbl p{margin:0 0 8px}.obx-bbl p:last-child{margin-bottom:0}
 .obx-bbl h1,.obx-bbl h2,.obx-bbl h3,.obx-bbl h4{font-weight:600;margin:10px 0 5px}
 .obx-bbl h1{font-size:16px}.obx-bbl h2{font-size:15px}.obx-bbl h3,.obx-bbl h4{font-size:14px}
-.obx-bbl ul,.obx-bbl ol{padding-left:20px;margin:5px 0 8px}
-.obx-bbl li{margin-bottom:4px;padding-left:2px}
-.obx-bbl ul{list-style:disc}.obx-bbl ol{list-style:decimal}
+.obx-bbl ul,.obx-bbl ol{margin:8px 0;padding-left:18px;word-break:break-word;overflow-wrap:break-word;max-width:100%;box-sizing:border-box;}
+.obx-bbl li{margin-bottom:6px;padding-left:6px;line-height:1.6;word-break:break-word;overflow-wrap:break-word;display:list-item;min-width:0;}
 .obx-bbl strong{font-weight:600}.obx-bbl em{font-style:italic}.obx-bbl del{text-decoration:line-through;opacity:.6}
 .obx-bbl a{color:var(--p);text-decoration:underline;text-underline-offset:2px}
 .obx-row-u .obx-bbl a{color:rgba(255,255,255,.85)}
-.obx-ic{font-family:"SF Mono",Menlo,Consolas,monospace;font-size:12px;background:rgba(0,0,0,.1);padding:2px 6px;border-radius:5px}
-.obx-row-u .obx-ic{background:rgba(255,255,255,.2)}
-.obx-pre{background:#1a1b26;border-radius:12px;margin:8px 0;overflow:hidden;border:1px solid rgba(255,255,255,.06)}
-.obx-pre-bar{display:flex;align-items:center;justify-content:space-between;padding:8px 14px 6px;border-bottom:1px solid rgba(255,255,255,.06)}
-.obx-lang{font-size:11px;color:#7c7f9e;font-family:"SF Mono",Menlo,monospace;font-weight:500}
-.obx-pre-copy{background:rgba(255,255,255,.07);border:none;color:#9ca3af;font-size:11px;padding:3px 10px;border-radius:5px;cursor:pointer;font-family:inherit}
-.obx-pre-copy:hover{background:rgba(255,255,255,.12);color:#fff}
-.obx-pre code{display:block;padding:12px 14px;color:#cdd6f4;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:12px;line-height:1.6;overflow-x:auto;white-space:pre}
-.obx-tbl-w{overflow-x:auto;margin:8px 0}
-.obx-tbl{border-collapse:collapse;width:100%;font-size:13px}
+.obx-ic{font-family:"SF Mono",Menlo,Consolas,monospace;font-size:12px;background:rgba(0,0,0,.12);color:var(--p);padding:4px 9px;border-radius:6px;font-weight:500;border:1px solid rgba(0,0,0,.08)}
+.obx-row-u .obx-ic{background:rgba(255,255,255,.2);color:#fff;border-color:rgba(255,255,255,.15)}
+.obx-pre{background:#0f131f;border-radius:12px;margin:8px 0;overflow:auto;border:1px solid rgba(255,255,255,.08);box-shadow:inset 0 1px 3px rgba(0,0,0,.5),0 0 12px rgba(0,0,0,.1);max-width:100%;box-sizing:border-box;}
+.obx-pre-bar{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.1);background:rgba(0,0,0,.2)}
+.obx-lang{font-size:11px;color:#8b92b8;font-family:"SF Mono",Menlo,monospace;font-weight:600}
+.obx-pre-copy{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:#b0b7d4;font-size:11px;padding:7px 14px;border-radius:7px;cursor:pointer;font-family:inherit;font-weight:500;transition:all .16s cubic-bezier(.34,.84,.68,1.08)}
+.obx-pre-copy:hover{background:rgba(255,255,255,.18);color:#fff;border-color:rgba(255,255,255,.35);transform:scale(1.06)}
+.obx-pre-copy:active{background:rgba(255,255,255,.25);transform:scale(.92)}
+.obx-pre code{display:block;padding:14px;color:#e0e6f0;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:12px;line-height:1.65;overflow-x:auto;white-space:pre;word-wrap:break-word;overflow-wrap:break-word;max-width:100%;box-sizing:border-box;}
+.obx-tbl-w{overflow-x:auto;margin:8px 0;width:100%;box-sizing:border-box;}
+.obx-tbl{border-collapse:collapse;width:100%;font-size:13px;table-layout:auto;}
 .obx-tbl th{background:rgba(0,0,0,.06);font-weight:600;text-align:left}
 .obx-tbl th,.obx-tbl td{padding:8px 12px;border:1px solid var(--bd2)}
 .obx-row-u .obx-tbl th{background:rgba(255,255,255,.15)}
-.obx-row-u .obx-tbl th,.obx-row-u .obx-tbl td{border-color:rgba(255,255,255,.2)}
 .obx-bbl blockquote{border-left:3px solid var(--p);padding-left:12px;color:var(--tx2);font-style:italic;margin:6px 0}
-.obx-row-u .obx-bbl blockquote{border-left-color:rgba(255,255,255,.5);color:rgba(255,255,255,.8)}
+.obx-row-u .obx-bbl blockquote{border-left-color:rgba(255,255,255,.5)}
 .obx-bbl hr{border:none;border-top:1px solid var(--bd);margin:10px 0}
 
+/* Images */
+.obx-img-wrap{margin:8px 0;border-radius:10px;overflow:hidden;background:rgba(0,0,0,.05)}
+.obx-img{max-width:100%;height:auto;display:block;border-radius:10px}
+.obx-img-alt{font-size:12px;color:var(--tx3);margin:8px 0 0;text-align:center;padding:0 8px}
+
 /* Meta row */
-.obx-meta{display:flex;align-items:center;gap:8px;padding:4px 6px;min-height:24px}
+.obx-meta{display:flex;align-items:center;gap:8px;padding:6px 6px;min-height:24px;font-size:11px}
 .obx-row-a .obx-meta{padding-left:36px}
 .obx-mt{font-size:10px;color:var(--tx3)}
 .obx-cp{background:none;border:none;cursor:pointer;color:var(--tx3);
-  padding:2px 7px;border-radius:6px;display:flex;align-items:center;gap:3px;
-  font-size:11px;font-family:inherit;opacity:0;transition:opacity .15s,color .12s}
-.obx-cp svg{width:12px;height:12px}
+  padding:4px 10px;border-radius:8px;display:flex;align-items:center;gap:4px;
+  font-size:11px;font-family:inherit;opacity:0;transition:all .16s cubic-bezier(.34,.84,.68,1.08);
+  font-weight:500}
+.obx-cp svg{width:12px;height:12px;transition:transform .16s cubic-bezier(.34,.84,.68,1.08)}
 .obx-row-a:hover .obx-cp{opacity:1}
-.obx-cp:hover{color:var(--p);background:var(--bg3)}
+.obx-cp:hover{color:var(--p);background:color-mix(in srgb,var(--p) 12%,transparent);transform:scale(1.08)}
+.obx-cp:hover svg{transform:scale(1.2)}
+.obx-cp:active{transform:scale(.92)}
 
-/* Typing indicator */
-.obx-typing{display:flex;align-items:center;gap:5px;padding:4px 0}
-.obx-typing span{width:7px;height:7px;background:var(--tx3);border-radius:50%;display:block;
-  animation:obx-bb 1.2s infinite ease-in-out}
-.obx-typing span:nth-child(2){animation-delay:.18s}
-.obx-typing span:nth-child(3){animation-delay:.36s}
-@keyframes obx-bb{0%,80%,100%{transform:scale(.55);opacity:.35}40%{transform:scale(1);opacity:1}}
+/* Typing */
+.obx-typing{display:flex;align-items:center;gap:6px;padding:4px 0}
+.obx-typing span{width:8px;height:8px;background:var(--tx2);border-radius:50%;display:block;
+  animation:obx-bb 1.4s infinite cubic-bezier(.68,-0.55,.27,1.55)}
+.obx-typing span:nth-child(2){animation-delay:.2s}
+.obx-typing span:nth-child(3){animation-delay:.4s}
+@keyframes obx-bb{0%,80%,100%{transform:scale(.4);opacity:.2}40%{transform:scale(1);opacity:1}}
+@keyframes obx-msg-enter{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 
 /* Empty state */
 .obx-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
-  text-align:center;padding:32px 20px;gap:14px;color:var(--tx3)}
-.obx-ei{width:60px;height:60px;border-radius:20px;
+  text-align:center;padding:40px 24px;gap:16px;color:var(--tx3)}
+.obx-ei{width:64px;height:64px;border-radius:16px;
   background:linear-gradient(135deg,var(--p),color-mix(in srgb,var(--p) 55%,#1a0a6b));
   display:flex;align-items:center;justify-content:center;
-  box-shadow:0 4px 16px color-mix(in srgb,var(--p) 35%,transparent)}
-.obx-ei svg{width:28px;height:28px;stroke:#fff}
-.obx-et{font-size:17px;font-weight:700;color:var(--tx);letter-spacing:-.02em}
+  box-shadow:0 8px 24px color-mix(in srgb,var(--p) 35%,transparent)}
+.obx-ei svg{width:32px;height:32px;stroke:#fff}
+.obx-et{font-size:18px;font-weight:700;color:var(--tx)}
 .obx-es{font-size:13px;line-height:1.6;max-width:280px;color:var(--tx2)}
-.obx-chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:6px}
+.obx-chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:8px}
 .obx-chip{background:var(--bg2);border:1px solid var(--bd2);color:var(--tx2);font-size:12px;
-  font-family:inherit;padding:7px 14px;border-radius:20px;cursor:pointer;
+  font-family:inherit;padding:8px 14px;border-radius:16px;cursor:pointer;
   transition:all .15s;white-space:nowrap;display:flex;align-items:center;gap:5px}
-.obx-chip:hover{background:var(--p15);border-color:var(--p);color:var(--p)}
+.obx-chip:hover{background:var(--p15);border-color:var(--p);color:var(--p);transform:translateY(-1px)}
 
-/* ─── Input bar ─── */
+/* Input bar */
 #obx-bar{border-top:1px solid var(--bd);background:var(--bg);flex-shrink:0;padding:12px}
 #obx-input-row{display:flex;align-items:flex-end;gap:8px}
-#obx-in{flex:1;border:1.5px solid var(--bd2);border-radius:22px;
-  padding:10px 16px;background:var(--bg2);color:var(--tx);
+#obx-in{flex:1;border:1.5px solid var(--bd2);border-radius:18px;
+  padding:11px 16px;background:var(--bg2);color:var(--tx);
   font-size:14px;font-family:inherit;resize:none;outline:none;
   max-height:130px;overflow-y:auto;line-height:1.55;
-  transition:border-color .15s,background .15s,box-shadow .15s}
+  transition:border-color .16s cubic-bezier(.34,.84,.68,1.08),background .16s,box-shadow .16s cubic-bezier(.34,.84,.68,1.08)}
 #obx-in::placeholder{color:var(--tx3)}
-#obx-in:focus{border-color:var(--p);background:var(--bg);box-shadow:0 0 0 4px var(--p15)}
-.obx-bar-btns{display:flex;align-items:center;gap:4px}
-.obx-mic{color:var(--tx3)}
-.obx-mic.rec{color:var(--p);background:var(--p15);animation:obx-mic-pulse .9s infinite alternate}
+#obx-in:focus{border-color:var(--p);background:color-mix(in srgb,var(--bg) 98%,var(--p));box-shadow:0 0 0 4px color-mix(in srgb,var(--p) 15%,transparent),0 0 8px color-mix(in srgb,var(--p) 20%,transparent)}
+.obx-bar-btns{display:flex;align-items:center;gap:6px}
+.obx-mic{color:var(--tx3);cursor:pointer;padding:6px;border-radius:8px;
+  transition:color .15s,background .15s cubic-bezier(.34,.84,.68,1.08),transform .15s}
+.obx-mic:hover{color:var(--tx2);background:color-mix(in srgb,var(--p) 8%,transparent);transform:scale(1.08)}
+.obx-mic:active{transform:scale(.92)}
+.obx-mic.rec{color:var(--p);background:var(--p15);animation:obx-mic-pulse .9s infinite alternate;transform:scale(1)}
 @keyframes obx-mic-pulse{from{box-shadow:0 0 0 0 var(--p15)}to{box-shadow:0 0 0 6px transparent}}
-.obx-upload-btn{color:var(--tx3)}
 #obx-send{width:40px;height:40px;flex-shrink:0;border-radius:50%;
   background:var(--p);color:#fff;border:none;cursor:pointer;
   display:flex;align-items:center;justify-content:center;
-  box-shadow:0 2px 8px color-mix(in srgb,var(--p) 40%,transparent);
-  transition:transform .12s,opacity .12s,background .18s}
+  box-shadow:0 4px 12px color-mix(in srgb,var(--p) 40%,transparent),0 0 16px color-mix(in srgb,var(--p) 0%,transparent);
+  transition:all .14s cubic-bezier(.34,.84,.68,1.08);pointer-events:auto}
 #obx-send svg{width:16px;height:16px}
-#obx-send:hover{opacity:.9;transform:scale(1.06)}
-#obx-send:active{transform:scale(.92)}
-#obx-send.stop{background:#ff3b30;box-shadow:0 2px 8px rgba(255,59,48,.4)}
+#obx-send:hover{opacity:.95;transform:scale(1.12);box-shadow:0 6px 20px color-mix(in srgb,var(--p) 55%,transparent),0 0 24px color-mix(in srgb,var(--p) 25%,transparent)}
+#obx-send:active{transform:scale(.88);box-shadow:0 2px 8px color-mix(in srgb,var(--p) 40%,transparent)}
+#obx-send.stop{background:#ff3b30;box-shadow:0 4px 12px rgba(255,59,48,.4)}
 #obx-foot{font-size:10px;color:var(--tx3);text-align:center;margin-top:8px}
 
-/* PDF upload indicator */
+/* Doc badge */
 #obx-doc-badge{display:none;align-items:center;gap:8px;
   background:var(--bg2);border:1px solid var(--bd);border-radius:10px;
   padding:8px 12px;margin-top:8px;font-size:12px;color:var(--tx2)}
 #obx-doc-badge.on{display:flex}
 .obx-doc-name{flex:1;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.obx-doc-x{background:none;border:none;cursor:pointer;color:var(--tx3);padding:0;
-  display:flex;align-items:center}
+.obx-doc-x{background:none;border:none;cursor:pointer;color:var(--tx3);padding:0;display:flex;align-items:center}
 .obx-doc-x svg{width:14px;height:14px}
-.obx-doc-status{font-size:11px;color:var(--tx3)}
 
 /* Fullpage */
 #obx[data-mode=fullpage] #obx-btn{display:none}
 #obx[data-mode=fullpage] #obx-win,#obx.fs #obx-win{
-  position:fixed;inset:0;width:100%!important;height:100%!important;
-  border-radius:0;bottom:0!important;right:0!important;left:0!important;top:0!important;
-  border:none;animation:none}
+  position:fixed !important;top:0!important;left:0!important;right:0!important;bottom:0!important;
+  width:100vw!important;height:100vh!important;max-width:100vw!important;max-height:100vh!important;
+  border-radius:0;border:none;animation:none;margin:0}
 #obx.fs #obx-hist{border-radius:0}
-@media(max-width:460px){#obx-win{width:calc(100vw - 16px)!important}}
+#obx.fs #obx-resize{display:none}
+@media(max-width:480px){#obx-win{width:calc(100vw - 32px)!important;max-height:calc(100vh - 120px)!important}}
 `
   }
 
-  // ─── Mount ───────────────────────────────────────────────────────
+  // ─── Mount ────────────────────────────────────────────────────────
   mount(target?: HTMLElement){
     if(document.getElementById('obx')) return
     const st=document.createElement('style'); st.id='obx-css'; st.textContent=this.css()
@@ -426,8 +464,10 @@ export class OrbinexWidget {
 </button>
 
 <div id="obx-win" hidden>
+  <!-- Resize handle -->
+  <div id="obx-resize" title="Drag to resize"></div>
 
-  <!-- History overlay -->
+  <!-- History sidebar -->
   <div id="obx-hist">
     <div id="obx-hist-hd">
       <div class="obx-hist-logo">
@@ -436,7 +476,7 @@ export class OrbinexWidget {
       </div>
       <button class="obx-ib" id="obx-hx" title="Close">${IC.x}</button>
     </div>
-    <button class="obx-new-btn" id="obx-new">${IC.plus} New conversation</button>
+    <button class="obx-new-btn" id="obx-new">${IC.plus} New chat</button>
     <div id="obx-sess"></div>
   </div>
   <div id="obx-hist-bg"></div>
@@ -465,15 +505,15 @@ export class OrbinexWidget {
         <div class="obx-bar-btns">
           <button class="obx-ib obx-mic" id="obx-mic" title="Voice input">${IC.mic}</button>
           <button class="obx-ib obx-upload-btn" id="obx-up" title="Upload PDF">${IC.upload}</button>
-          <button id="obx-send" title="Send">${IC.send}</button>
+          <button id="obx-send" title="Send message">${IC.send}</button>
         </div>
       </div>
       <div id="obx-doc-badge">
         <span>📄</span><span class="obx-doc-name" id="obx-doc-name">—</span>
-        <span class="obx-doc-status" id="obx-doc-status">Indexing…</span>
+        <span class="obx-doc-status" id="obx-doc-status">Ready</span>
         <button class="obx-doc-x" id="obx-doc-x" title="Remove">${IC.x}</button>
       </div>
-      <div id="obx-foot">Orbinex AI · Enter to send · Shift+Enter for newline</div>
+      <div id="obx-foot">Press Enter to send · Shift+Enter for newline</div>
     </div>
   </div>
 </div>
@@ -483,7 +523,9 @@ export class OrbinexWidget {
   // ─── Bind ─────────────────────────────────────────────────────────
   private bind(){
     const $=(id:string)=>this.root.querySelector('#'+id) as HTMLElement
+    // Launcher
     $('obx-btn').addEventListener('click',()=>this.open())
+    // Main controls - header is NOT clickable
     $('obx-cl').addEventListener('click',()=>this.close())
     $('obx-hb').addEventListener('click',()=>this.togHist())
     $('obx-hx').addEventListener('click',()=>this.closeHist())
@@ -496,23 +538,38 @@ export class OrbinexWidget {
     $('obx-up').addEventListener('click',()=>($('obx-file-in') as HTMLInputElement).click())
     $('obx-file-in').addEventListener('change',(e:any)=>this.onFile(e))
     $('obx-doc-x').addEventListener('click',()=>this.clearDoc())
+    // Input 
     const inp=$('obx-in') as HTMLTextAreaElement
     inp.addEventListener('keydown',(e:any)=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();this.send()}})
     inp.addEventListener('input',()=>{inp.style.height='auto';inp.style.height=Math.min(inp.scrollHeight,130)+'px'})
-    // Drag
+    // Drag - header only
     $('obx-hd').addEventListener('mousedown',(e:any)=>this.dragStart(e))
     document.addEventListener('mousemove',(e:any)=>this.dragMove(e))
     document.addEventListener('mouseup',()=>this.dragEnd())
     $('obx-hd').addEventListener('touchstart',(e:any)=>this.dragStart(e.touches[0]),{passive:true})
     document.addEventListener('touchmove',(e:any)=>this.dragMove(e.touches[0]),{passive:true})
     document.addEventListener('touchend',()=>this.dragEnd())
-    // Click messages → close history
-    $('obx-msgs').addEventListener('click',()=>{if(this.histOpen)this.closeHist()})
+    // Resize - bottom right corner
+    $('obx-resize').addEventListener('mousedown',(e:any)=>this.resizeStart(e))
+    document.addEventListener('mousemove',(e:any)=>this.resizeMove(e))
+    document.addEventListener('mouseup',()=>this.resizeEnd())
+    $('obx-resize').addEventListener('touchstart',(e:any)=>this.resizeStart(e.touches[0]),{passive:true})
+    document.addEventListener('touchmove',(e:any)=>this.resizeMove(e.touches[0]),{passive:true})
+    document.addEventListener('touchend',()=>this.resizeEnd())
+    // Click messages → close history & handle code copy
+    $('obx-msgs').addEventListener('click',(e:any)=>{
+      if(this.histOpen)this.closeHist()
+      const target=e.target as HTMLElement
+      if(target.classList.contains('obx-pre-copy')){
+        const code=safeDecode(target.getAttribute('data-code')||'')
+        navigator.clipboard?.writeText(code).catch(()=>{})
+        target.innerHTML=IC.check+' Copied'; setTimeout(()=>{target.innerHTML='Copy'},2000)
+      }
+    })
   }
 
   // ─── Open / Close ─────────────────────────────────────────────────
   private open(){
-    this.newSession()
     const w=this.root.querySelector('#obx-win') as HTMLElement
     w.hidden=false; this.isOpen=true
     this.root.classList.add('open')
@@ -546,7 +603,7 @@ export class OrbinexWidget {
         <div class="obx-si-ic">💬</div>
         <div class="obx-si-tx">
           <div class="obx-si-t">${this.esc(s.title)}</div>
-          <div class="obx-si-d">${d} · ${s.messages.length} messages</div>
+          <div class="obx-si-d">${d} · ${s.messages.length} msgs</div>
         </div>
         <button class="obx-si-del" data-sid="${s.id}" title="Delete">${IC.trash}</button>
       </div>`
@@ -587,7 +644,7 @@ export class OrbinexWidget {
     b.innerHTML=this.fullscreen?IC.shrink:IC.expand
   }
 
-  // ─── Drag ─────────────────────────────────────────────────────────
+  // ─── Drag ────────────────────────────────────────────────────────
   private dragStart(e:any){
     if(this.fullscreen)return
     const w=this.root.querySelector('#obx-win') as HTMLElement
@@ -600,9 +657,35 @@ export class OrbinexWidget {
     const w=this.root.querySelector('#obx-win') as HTMLElement
     let x=Math.max(0,Math.min(e.clientX-this.dx,window.innerWidth-w.offsetWidth))
     let y=Math.max(0,Math.min(e.clientY-this.dy,window.innerHeight-w.offsetHeight))
-    w.style.cssText+=`;position:fixed;left:${x}px;top:${y}px;right:auto;bottom:auto`
+    w.style.position='fixed'
+    w.style.left=x+'px'
+    w.style.top=y+'px'
+    w.style.right='auto'
+    w.style.bottom='auto'
   }
   private dragEnd(){this.dragOn=false;this.root.querySelector('#obx-win')?.classList.remove('drag')}
+
+  // ─── Resize ──────────────────────────────────────────────────────
+  private resizeStart(e:any){
+    if(this.fullscreen)return
+    e.stopPropagation(); this.resizeOn=true
+    const w=this.root.querySelector('#obx-win') as HTMLElement
+    w.classList.add('resize')
+    this.resizeX=e.clientX; this.resizeY=e.clientY
+  }
+  private resizeMove(e:any){
+    if(!this.resizeOn)return
+    const w=this.root.querySelector('#obx-win') as HTMLElement
+    const dX=e.clientX-this.resizeX; const dY=e.clientY-this.resizeY
+    const rect=w.getBoundingClientRect()
+    // Width constraint: min 300px, max to screen edge minus 20px
+    const nW=Math.max(300,Math.min(w.offsetWidth+dX,window.innerWidth-Math.max(rect.left,20)-20))
+    // Height constraint: min 400px, max to bottom of screen minus 60px (allows resize to icon area)
+    const nH=Math.max(400,Math.min(w.offsetHeight+dY,window.innerHeight-rect.top-60))
+    w.style.width=nW+'px'; w.style.height=nH+'px'
+    this.resizeX=e.clientX; this.resizeY=e.clientY
+  }
+  private resizeEnd(){this.resizeOn=false;this.root.querySelector('#obx-win')?.classList.remove('resize')}
 
   // ─── Voice ────────────────────────────────────────────────────────
   private togVoice(){
@@ -622,8 +705,7 @@ export class OrbinexWidget {
     this.recog.start()
   }
 
-  // ─── File / PDF upload → sends to MCP RAG endpoint ───────────────
-  private uploadedDoc:string|null=null
+  // ─── File / PDF upload ────────────────────────────────────────────
   private async onFile(e:any){
     const file:File=e.target.files[0]; if(!file)return
     const badge=this.root.querySelector('#obx-doc-badge') as HTMLElement
@@ -633,18 +715,16 @@ export class OrbinexWidget {
     e.target.value=''
     try{
       const text=await this.readFile(file)
-      statusEl.textContent='Sending to RAG…'
-      // Send to MCP rebuild endpoint with the text
+      statusEl.textContent='Sending…'
       const mcpUrl=(this.cfg as any).mcpServerUrl||'http://localhost:3002'
       const res=await fetch(`${mcpUrl}/tools/call`,{
         method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({toolName:'ingest_document',parameters:{filename:file.name,content:text}}),
       }).catch(()=>null)
-      this.uploadedDoc=text.slice(0,6000) // keep context snippet
-      statusEl.textContent=res?.ok?'Ready ✓':'Saved locally ✓'
-      // Also inject as context in next message
-      this.appendSys(`📄 Document "${file.name}" loaded (${Math.round(text.length/1000)}K chars). Ask me questions about it.`)
-    }catch(err:any){statusEl.textContent='Error: '+err.message}
+      this.uploadedDoc=text.slice(0,6000)
+      statusEl.textContent=res?.ok?'Ready ✓':'Indexed'
+      this.appendSys(`📄 "${file.name}" loaded · Ask me about it`)
+    }catch(err:any){statusEl.textContent='Error'}
   }
   private clearDoc(){
     this.uploadedDoc=null
@@ -656,17 +736,12 @@ export class OrbinexWidget {
       const r=new FileReader()
       r.onload=e=>res(e.target?.result as string)
       r.onerror=()=>rej(new Error('Failed to read file'))
-      if(file.type==='application/pdf'){
-        // For PDF: read as text (works for text-based PDFs)
-        r.readAsText(file)
-      } else {
-        r.readAsText(file)
-      }
+      r.readAsText(file)
     })
   }
   private appendSys(content:string){
     const c=this.root.querySelector('#obx-msgs')!; c.querySelector('.obx-empty')?.remove()
-    const el=document.createElement('div'); el.className='obx-sys-msg'
+    const el=document.createElement('div')
     el.style.cssText='text-align:center;font-size:11px;color:var(--tx3);margin:8px 0;padding:6px 12px;background:var(--bg2);border-radius:10px;border:1px solid var(--bd)'
     el.textContent=content; c.appendChild(el); this.scrollBot()
   }
@@ -678,15 +753,13 @@ export class OrbinexWidget {
     if(!msgs.length){
       c.innerHTML=`<div class="obx-empty">
         <div class="obx-ei">${IC.sparkle}</div>
-        <div class="obx-et">Hi there! 👋</div>
-        <div class="obx-es">I'm your AI assistant. I can answer questions, use tools, search documents, and more.</div>
+        <div class="obx-et">Welcome! 👋</div>
+        <div class="obx-es">I'm your AI assistant with access to weather, currency, calculations, and more.</div>
         <div class="obx-chips">
-          <button class="obx-chip" data-q="What's the weather in Mumbai?">🌤 Weather</button>
-          <button class="obx-chip" data-q="Calculate 15% of 2500">🧮 Calculate</button>
-          <button class="obx-chip" data-q="Convert 100 USD to INR">💱 Currency</button>
+          <button class="obx-chip" data-q="What's the weather in NYC?">🌤 Weather</button>
+          <button class="obx-chip" data-q="Calculate 20% of 5000">🧮 Math</button>
+          <button class="obx-chip" data-q="100 USD to EUR">💱 Currency</button>
           <button class="obx-chip" data-q="Tell me about Paris">🌍 City guide</button>
-          <button class="obx-chip" data-q="What time is it in Tokyo?">🕐 Time zones</button>
-          <button class="obx-chip" data-q="Latest AI news">📰 News</button>
         </div>
       </div>`
       c.querySelectorAll('.obx-chip').forEach(ch=>ch.addEventListener('click',()=>{
@@ -716,12 +789,12 @@ export class OrbinexWidget {
     </div>
     <div class="obx-meta">
       <span class="obx-mt">${t}</span>
-      ${!isU?`<button class="obx-cp" title="Copy">${IC.copy} Copy</button>`:''}
+      ${!isU?`<button class="obx-cp" title="Copy message">${IC.copy}</button>`:''}
     </div>`
     row.querySelector('.obx-cp')?.addEventListener('click',()=>{
       navigator.clipboard?.writeText(content).catch(()=>{})
       const b=row.querySelector('.obx-cp')!; b.innerHTML=IC.check+' Copied'
-      setTimeout(()=>{b.innerHTML=IC.copy+' Copy'},1800)
+      setTimeout(()=>{b.innerHTML=IC.copy},2000)
     })
     c.appendChild(row)
     if(save){
@@ -743,17 +816,17 @@ export class OrbinexWidget {
 
   private scrollBot(){const c=this.root.querySelector('#obx-msgs');if(c)requestAnimationFrame(()=>{c.scrollTop=c.scrollHeight})}
 
-  // ─── Send ─────────────────────────────────────────────────────────
+  // ─── Send ────────────────────────────────────────────────────────
   private async send(){
     if(this.streaming){this.abort?.abort();return}
     const inp=this.root.querySelector('#obx-in') as HTMLTextAreaElement
     let text=inp.value.trim(); if(!text)return
+    const userMsg=text
     inp.value=''; inp.style.height='auto'
-    // If doc loaded, prepend context note
     if(this.uploadedDoc){
-      text=`[Context from uploaded document]\n${this.uploadedDoc.slice(0,3000)}\n\n[User question] ${text}`
+      text=`[Context: ${this.uploadedDoc.slice(0,2000)}]\n\n${text}`
     }
-    this.addBubble('user',inp.value.trim()||text.split('[User question] ').pop()||text)
+    this.addBubble('user',userMsg)
     const ty=this.addTyping(); this.setStream(true)
     let full=''; let first=true; this.abort=new AbortController()
     try{
@@ -766,7 +839,7 @@ export class OrbinexWidget {
         }
         if(chunk.type==='done'||chunk.type==='error')break
       }
-    }catch(e:any){if(e?.name!=='AbortError'){ty.remove();this.addBubble('assistant',`⚠ ${e.message}`)}}
+    }catch(e:any){if(e?.name!=='AbortError'){ty.remove();this.addBubble('assistant','I got into some trouble processing that. Please try again or rephrase your question.','',false)}}
     ty.remove()
     const live=this.root.querySelector('#obx-live')
     if(live){live.removeAttribute('id');if(full){this.sess.messages.push({role:'assistant',content:full,time:this.ft()});this.sess.updatedAt=Date.now();this.save()}}
