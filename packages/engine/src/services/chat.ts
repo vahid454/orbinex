@@ -46,7 +46,7 @@ function buildToolDefs(tools: Awaited<ReturnType<typeof getToolSchemas>>) {
         type: 'object',
         properties: Object.fromEntries(
           Object.entries(tool.parameters).map(([k, v]) => [k, {
-            type: v.type,
+            type: (v as any).type,
             description: v.description ?? k,
           }])
         ),

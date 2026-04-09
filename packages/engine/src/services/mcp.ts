@@ -1,4 +1,4 @@
-import type { ToolDefinition, ToolCallRequest, ToolCallResult } from '@orbinex/shared'
+import type { ToolDefinition, ToolCallRequest, ToolCallResult } from '../shared-lib/index'
 import { McpServerError, MCP_TIMEOUT_MS } from '../shared-lib/index'
 
 export class McpService {
