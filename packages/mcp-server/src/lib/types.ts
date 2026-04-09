@@ -1,4 +1,4 @@
-import type { ToolDefinition } from '@orbinex/shared'
+import type { ToolDefinition } from '../shared/types.js'
 
 // Extend ToolDefinition with a handler function
 export interface OrbinexTool extends ToolDefinition {

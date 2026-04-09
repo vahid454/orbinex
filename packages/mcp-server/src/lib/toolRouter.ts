@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import type { OrbinexTool } from './types'
-import { McpServerError } from '@orbinex/shared'
+import { McpServerError } from './errors.js'
 
 export function createToolRouter(tools: OrbinexTool[]): FastifyPluginAsync {
   const toolMap = new Map(tools.map(t => [t.name, t]))
