@@ -74,9 +74,9 @@ export class ChatService {
 
     // ── Agentic loop: LLM → tool calls → LLM → ... ──────────
     let finalContent = ''
-    let loopMessages = [
+    let loopMessages: any[] = [
       { role: 'system' as const, content: config.systemPrompt },
-      ...messages.map(m => ({ role: m.role as any, content: m.content })),
+      ...messages.map(m => ({ role: m.role, content: m.content })),
     ]
 
     for (let i = 0; i < 5; i++) {   // max 5 tool-call rounds
@@ -95,7 +95,7 @@ export class ChatService {
         const apiKey = process.env.MCP_API_KEY
 
         // Add assistant message with tool_calls
-        loopMessages.push({ role: 'assistant', content: result.rawMessage } as any)
+        loopMessages.push({ role: 'assistant', content: result.rawMessage })
 
         for (const call of result.toolCalls) {
           console.log(`[ChatService] Calling tool: ${call.name}(${JSON.stringify(call.arguments)})`)
@@ -108,13 +108,13 @@ export class ChatService {
               role: 'tool',
               tool_call_id: call.id,
               content: JSON.stringify(toolResult.result),
-            } as any)
+            })
           } catch (err: any) {
             loopMessages.push({
               role: 'tool',
               tool_call_id: call.id,
               content: `Error: ${err.message}`,
-            } as any)
+            })
           }
         }
         // Loop back to LLM with tool results
@@ -147,13 +147,13 @@ export class ChatService {
     const messages = [...history, userMsg]
 
     // Yield user message acknowledgment
-    yield { type: 'text', content: '', sessionId, metadata: { userMessage: userMsg } }
+    yield { type: 'text', content: '', sessionId, metadata: { userMessage: userMsg } } as any
 
     // ── Agentic loop: LLM → tool calls → LLM → ... ──────────
     let finalContent = ''
-    let loopMessages = [
+    let loopMessages: any[] = [
       { role: 'system' as const, content: config.systemPrompt },
-      ...messages.map(m => ({ role: m.role as any, content: m.content })),
+      ...messages.map(m => ({ role: m.role, content: m.content })),
     ]
 
     for (let i = 0; i < 5; i++) {
@@ -178,7 +178,7 @@ export class ChatService {
         const apiKey = process.env.MCP_API_KEY
 
         // Add assistant message with tool_calls
-        loopMessages.push({ role: 'assistant', content: result.rawMessage } as any)
+        loopMessages.push({ role: 'assistant', content: result.rawMessage })
 
         for (const call of result.toolCalls) {
           // Yield tool call start to UI
@@ -187,7 +187,7 @@ export class ChatService {
             content: `Calling tool: ${call.name}...`, 
             sessionId,
             toolCall: { name: call.name, arguments: call.arguments }
-          }
+          } as any
           
           console.log(`[ChatService] Calling tool: ${call.name}(${JSON.stringify(call.arguments)})`)
           try {
@@ -202,24 +202,24 @@ export class ChatService {
               content: `Tool result received for: ${call.name}`,
               sessionId,
               toolResult: { name: call.name, result: toolResult.result }
-            }
+            } as any
             
             loopMessages.push({
               role: 'tool',
               tool_call_id: call.id,
               content: JSON.stringify(toolResult.result),
-            } as any)
+            })
           } catch (err: any) {
             yield { 
               type: 'error', 
               content: `Tool error: ${err.message}`, 
               sessionId 
-            }
+            } as any
             loopMessages.push({
               role: 'tool',
               tool_call_id: call.id,
               content: `Error: ${err.message}`,
-            } as any)
+            })
           }
         }
         // Loop back to LLM with tool results
@@ -236,6 +236,6 @@ export class ChatService {
     }
     saveSession(sessionId, [...messages, assistantMsg])
 
-    yield { type: 'done', content: '', sessionId }
+    yield { type: 'done', content: '', sessionId } as any
   }
 }
