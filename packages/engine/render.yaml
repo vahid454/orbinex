@@ -2,6 +2,7 @@ services:
   - type: web
     name: orbinex-engine
     runtime: node
+    plan: free                  
     rootDir: packages/engine
     buildCommand: npm install && npm run build
     startCommand: node dist/index.js
