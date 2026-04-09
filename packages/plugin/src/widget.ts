@@ -716,7 +716,7 @@ export class OrbinexWidget {
     try{
       const text=await this.readFile(file)
       statusEl.textContent='Sending…'
-      const mcpUrl=(this.cfg as any).mcpServerUrl||'http://localhost:3002'
+      const mcpUrl=(this.cfg as any).mcpServerUrl||'https://orbinex-mcp-server.onrender.com'
       const res=await fetch(`${mcpUrl}/tools/call`,{
         method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({toolName:'ingest_document',parameters:{filename:file.name,content:text}}),

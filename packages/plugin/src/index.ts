@@ -15,7 +15,7 @@ function autoInit() {
 
   const cfg: WidgetConfig = {
     tenantId,
-    engineUrl:      script.dataset.engine      ?? 'http://localhost:3001',
+    engineUrl:      script.dataset.engine      ?? 'https://orbinex-engine.onrender.com',
     mode:          (script.dataset.mode         ?? 'bubble') as WidgetConfig['mode'],
     position:      (script.dataset.position     ?? 'bottom-right') as WidgetConfig['position'],
     primaryColor:   script.dataset.color        ?? '#6C5CE7',

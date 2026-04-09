@@ -1,0 +1,4 @@
+ENGINE_URL=https://orbinex-delta.vercel.app
+MCP_URL=https://orbinex-mcp-server.onrender.com
+PLUGIN_URL=https://ebc64965.orbinex-plugin.pages.dev/orbinex.iife.js
+DEPLOYED_AT=Thu Apr  9 15:29:24 IST 2026
