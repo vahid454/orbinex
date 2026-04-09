@@ -1,5 +1,5 @@
 import type { FastifyError, FastifyRequest, FastifyReply } from 'fastify'
-import { OrbinexError } from '@orbinex/shared'
+import { OrbinexError } from '../shared-lib/index'
 
 export function errorHandler(
   err: FastifyError,

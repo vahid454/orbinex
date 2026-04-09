@@ -1,4 +1,4 @@
-import type { ChatRequest, ChatResponse, StreamChunk, Message } from '@orbinex/shared'
+import type { ChatRequest, ChatResponse, StreamChunk, Message } from '../shared-lib/index'
 import { ModelService } from './model'
 import { McpService }   from './mcp'
 import config from '../config'

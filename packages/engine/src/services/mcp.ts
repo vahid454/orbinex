@@ -1,5 +1,5 @@
 import type { ToolDefinition, ToolCallRequest, ToolCallResult } from '@orbinex/shared'
-import { McpServerError, MCP_TIMEOUT_MS } from '@orbinex/shared'
+import { McpServerError, MCP_TIMEOUT_MS } from '../shared-lib/index'
 
 export class McpService {
   async listTools(mcpServerUrl: string, apiKey?: string): Promise<ToolDefinition[]> {

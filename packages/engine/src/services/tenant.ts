@@ -1,4 +1,4 @@
-import type { TenantConfig } from '@orbinex/shared'
+import type { TenantConfig } from '../shared-lib/index'
 
 export class TenantService {
   async create(data: Omit<TenantConfig, 'tenantId'>): Promise<TenantConfig> {
