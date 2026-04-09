@@ -48,6 +48,31 @@
   </div>
 </div>
 <div class="arrow-hint">← Click me!</div>
-<script type="module" src="/src/entry.ts"></script>
+<script type="module">
+  import { OrbinexWidget } from '/src/widget.ts';
+  
+  // Detect localhost
+  const isLocalhost = window.location.hostname === 'localhost' || 
+                      window.location.hostname === '127.0.0.1';
+  
+  const engineUrl = isLocalhost 
+    ? 'http://localhost:3001' 
+    : 'https://orbinex-engine.onrender.com';
+  
+  const config = {
+    tenantId: 'test-tenant-001',
+    engineUrl: engineUrl,
+    mode: 'bubble',
+    position: 'bottom-right',
+    primaryColor: '#6C5CE7',
+    title: 'Orbinex AI',
+    placeholder: 'Ask me anything…',
+    welcomeMessage: 'Hi! 👋 How can I help?',
+  };
+  
+  console.log('Orbinex: Connecting to', engineUrl);
+  const widget = new OrbinexWidget(config);
+  widget.mount();
+</script>
 </body>
 </html>
