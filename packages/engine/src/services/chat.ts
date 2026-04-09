@@ -137,17 +137,14 @@ export class ChatService {
     const history   = getSession(sessionId)
     const tools     = await getToolSchemas()
 
-    // Add user message
     const userMsg: Message = {
       id: makeId(), role: 'user',
       content: req.message, createdAt: new Date().toISOString(),
     }
     const messages = [...history, userMsg]
 
-    // Yield user message acknowledgment
     yield { type: 'text', content: '', sessionId, metadata: { userMessage: userMsg } } as any
 
-    // ── Agentic loop: LLM → tool calls → LLM → ... ──────────
     let finalContent = ''
     let loopMessages: any[] = [
       { role: 'system' as const, content: config.systemPrompt },
@@ -155,84 +152,88 @@ export class ChatService {
     ]
 
     for (let i = 0; i < 5; i++) {
-      const result = await modelService.completeWithTools(
-        config, loopMessages, buildToolDefs(tools)
-      )
+      let result;
+      try {
+        result = await modelService.completeWithTools(
+          config, loopMessages, buildToolDefs(tools)
+        );
+      } catch (err: any) {
+        console.error('LLM call failed:', err);
+        yield { type: 'error', content: `AI error: ${err.message}`, sessionId } as any;
+        break;
+      }
 
       if (result.type === 'text') {
-        finalContent = result.content
-        // Stream the final text in chunks (simulate streaming)
-        const words = result.content.split(' ')
+        finalContent = result.content;
+        // Stream final text in chunks
+        const words = result.content.split(' ');
         for (let j = 0; j < words.length; j++) {
-          yield { type: 'text', content: words[j] + (j < words.length - 1 ? ' ' : ''), sessionId }
-          // Small delay between chunks for realistic streaming effect
-          await new Promise(r => setTimeout(r, 20))
+          yield { type: 'text', content: words[j] + (j < words.length - 1 ? ' ' : ''), sessionId };
+          await new Promise(r => setTimeout(r, 20));
         }
-        break
+        break;
       }
 
       if (result.type === 'tool_calls') {
-        const mcpUrl = process.env.MCP_SERVER_URL ?? 'http://localhost:3002'
-        const apiKey = process.env.MCP_API_KEY
+        const mcpUrl = process.env.MCP_SERVER_URL ?? 'http://localhost:3002';
+        const apiKey = process.env.MCP_API_KEY;
 
-        // Add assistant message with tool_calls
-        loopMessages.push({ role: 'assistant', content: result.rawMessage })
+        // Add assistant message with tool_calls (required by OpenAI)
+        loopMessages.push({ role: 'assistant', content: result.rawMessage });
 
         for (const call of result.toolCalls) {
-          // Yield tool call start to UI
-          yield { 
-            type: 'tool_call', 
-            content: `Calling tool: ${call.name}...`, 
+          yield {
+            type: 'tool_call',
+            content: `Calling tool: ${call.name}...`,
             sessionId,
             toolCall: { name: call.name, arguments: call.arguments }
-          } as any
-          
-          console.log(`[ChatService] Calling tool: ${call.name}(${JSON.stringify(call.arguments)})`)
+          } as any;
+
+          console.log(`[ChatService] Calling tool: ${call.name}(${JSON.stringify(call.arguments)})`);
           try {
             const toolResult = await mcpService.call(mcpUrl, {
-              toolName:   call.name,
+              toolName: call.name,
               parameters: call.arguments,
-            }, apiKey)
-            
-            // Yield tool result to UI
-            yield { 
-              type: 'tool_result', 
+            }, apiKey);
+
+            yield {
+              type: 'tool_result',
               content: `Tool result received for: ${call.name}`,
               sessionId,
               toolResult: { name: call.name, result: toolResult.result }
-            } as any
-            
-                    loopMessages.push({
-              role: 'user',
-              content: `The tool "${call.name}" returned this result: ${JSON.stringify(toolResult.result)}. Now answer the user's question based on this information.`
-            })
-          } catch (err: any) {
-            yield { 
-              type: 'error', 
-              content: `Tool error: ${err.message}`, 
-              sessionId 
-            } as any
+            } as any;
+
+            // Append tool result as a user message (works with all providers)
             loopMessages.push({
-              role: 'tool',
-              tool_call_id: call.id,
-              content: `Error: ${err.message}`,
-            })
+              role: 'user',
+              content: `The tool "${call.name}" returned: ${JSON.stringify(toolResult.result)}. Use this to answer the user's question.`
+            });
+          } catch (err: any) {
+            yield { type: 'error', content: `Tool error: ${err.message}`, sessionId } as any;
+            loopMessages.push({
+              role: 'user',
+              content: `Error calling tool "${call.name}": ${err.message}`
+            });
           }
         }
-        // Loop back to LLM with tool results
-        continue
+        // Continue the loop – next iteration will call LLM with tool results
+        continue;
       }
-
-      break
+      break;
     }
 
-    // Save conversation
+    // Fallback: if no final content was generated, produce a generic answer
+    if (!finalContent) {
+      finalContent = "I'm sorry, I couldn't generate a response. Please try again.";
+      yield { type: 'text', content: finalContent, sessionId } as any;
+    }
+
     const assistantMsg: Message = {
       id: makeId(), role: 'assistant',
       content: finalContent, createdAt: new Date().toISOString(),
-    }
-    saveSession(sessionId, [...messages, assistantMsg])
+    };
+    saveSession(sessionId, [...messages, assistantMsg]);
 
-    yield { type: 'done', content: '', sessionId } as any
+    yield { type: 'done', content: '', sessionId } as any;
   }
 }
