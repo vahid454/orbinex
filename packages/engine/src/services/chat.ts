@@ -105,15 +105,13 @@ export class ChatService {
               parameters: call.arguments,
             }, apiKey)
             loopMessages.push({
-              role: 'tool',
-              tool_call_id: call.id,
-              content: JSON.stringify(toolResult.result),
-            })
+            role: 'user',
+            content: `The tool "${call.name}" returned this result: ${JSON.stringify(toolResult.result)}. Now answer the user's question based on this information.`
+})
           } catch (err: any) {
             loopMessages.push({
-              role: 'tool',
-              tool_call_id: call.id,
-              content: `Error: ${err.message}`,
+              role: 'user',
+              content: `Error occurred while calling tool "${call.name}": ${err.message}`
             })
           }
         }
@@ -204,10 +202,9 @@ export class ChatService {
               toolResult: { name: call.name, result: toolResult.result }
             } as any
             
-            loopMessages.push({
-              role: 'tool',
-              tool_call_id: call.id,
-              content: JSON.stringify(toolResult.result),
+                    loopMessages.push({
+              role: 'user',
+              content: `The tool "${call.name}" returned this result: ${JSON.stringify(toolResult.result)}. Now answer the user's question based on this information.`
             })
           } catch (err: any) {
             yield { 
