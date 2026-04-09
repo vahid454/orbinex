@@ -27,7 +27,7 @@ export const tenantRoutes: FastifyPluginAsync = async (app) => {
 
   app.post('/', async (req, reply) => {
     const body = CreateTenantSchema.parse(req.body)
-    const tenant = await tenantService.create(body)
+    const tenant = await tenantService.create(body as any)
     return reply.code(201).send(tenant)
   })
 
@@ -39,6 +39,6 @@ export const tenantRoutes: FastifyPluginAsync = async (app) => {
   app.patch('/:tenantId', async (req) => {
     const { tenantId } = req.params as { tenantId: string }
     const body = CreateTenantSchema.partial().parse(req.body)
-    return tenantService.update(tenantId, body)
+    return tenantService.update(tenantId, body as any)
   })
 }

@@ -15,7 +15,7 @@ export const chatRoutes: FastifyPluginAsync = async (app) => {
   // ── Standard JSON response ───────────────────────────────
   app.post('/', async (req, reply) => {
     const body = ChatBodySchema.parse(req.body)
-    const response = await chatService.chat(body)
+    const response = await chatService.chat(body as any) 
     return reply.send(response)
   })
 
@@ -29,7 +29,7 @@ export const chatRoutes: FastifyPluginAsync = async (app) => {
     reply.raw.setHeader('Access-Control-Allow-Origin', '*')
 
     try {
-      for await (const chunk of chatService.stream(body)) {
+      for await (const chunk of chatService.stream(body as any)) {
         reply.raw.write(`data: ${JSON.stringify(chunk)}\n\n`)
       }
     } catch (err: any) {
