@@ -135,14 +135,107 @@ export class ChatService {
   }
 
   async *stream(req: ChatRequest): AsyncGenerator<StreamChunk> {
-    // For now, delegate to chat() and yield as single chunk
-    // TODO: wire up streaming SDK calls in Phase 2
-    try {
-      const response = await this.chat(req)
-      yield { type: 'text', content: response.message.content, sessionId: response.sessionId }
-      yield { type: 'done', content: '',                        sessionId: response.sessionId }
-    } catch (err: any) {
-      yield { type: 'error', content: err.message, sessionId: req.sessionId ?? '' }
+    const sessionId = req.sessionId ?? makeId()
+    const history   = getSession(sessionId)
+    const tools     = await getToolSchemas()
+
+    // Add user message
+    const userMsg: Message = {
+      id: makeId(), role: 'user',
+      content: req.message, createdAt: new Date().toISOString(),
     }
+    const messages = [...history, userMsg]
+
+    // Yield user message acknowledgment
+    yield { type: 'text', content: '', sessionId, metadata: { userMessage: userMsg } }
+
+    // ── Agentic loop: LLM → tool calls → LLM → ... ──────────
+    let finalContent = ''
+    let loopMessages = [
+      { role: 'system' as const, content: config.systemPrompt },
+      ...messages.map(m => ({ role: m.role as any, content: m.content })),
+    ]
+
+    for (let i = 0; i < 5; i++) {
+      const result = await modelService.completeWithTools(
+        config, loopMessages, buildToolDefs(tools)
+      )
+
+      if (result.type === 'text') {
+        finalContent = result.content
+        // Stream the final text in chunks (simulate streaming)
+        const words = result.content.split(' ')
+        for (let j = 0; j < words.length; j++) {
+          yield { type: 'text', content: words[j] + (j < words.length - 1 ? ' ' : ''), sessionId }
+          // Small delay between chunks for realistic streaming effect
+          await new Promise(r => setTimeout(r, 20))
+        }
+        break
+      }
+
+      if (result.type === 'tool_calls') {
+        const mcpUrl = process.env.MCP_SERVER_URL ?? 'http://localhost:3002'
+        const apiKey = process.env.MCP_API_KEY
+
+        // Add assistant message with tool_calls
+        loopMessages.push({ role: 'assistant', content: result.rawMessage } as any)
+
+        for (const call of result.toolCalls) {
+          // Yield tool call start to UI
+          yield { 
+            type: 'tool_call', 
+            content: `Calling tool: ${call.name}...`, 
+            sessionId,
+            toolCall: { name: call.name, arguments: call.arguments }
+          }
+          
+          console.log(`[ChatService] Calling tool: ${call.name}(${JSON.stringify(call.arguments)})`)
+          try {
+            const toolResult = await mcpService.call(mcpUrl, {
+              toolName:   call.name,
+              parameters: call.arguments,
+            }, apiKey)
+            
+            // Yield tool result to UI
+            yield { 
+              type: 'tool_result', 
+              content: `Tool result received for: ${call.name}`,
+              sessionId,
+              toolResult: { name: call.name, result: toolResult.result }
+            }
+            
+            loopMessages.push({
+              role: 'tool',
+              tool_call_id: call.id,
+              content: JSON.stringify(toolResult.result),
+            } as any)
+          } catch (err: any) {
+            yield { 
+              type: 'error', 
+              content: `Tool error: ${err.message}`, 
+              sessionId 
+            }
+            loopMessages.push({
+              role: 'tool',
+              tool_call_id: call.id,
+              content: `Error: ${err.message}`,
+            } as any)
+          }
+        }
+        // Loop back to LLM with tool results
+        continue
+      }
+
+      break
+    }
+
+    // Save conversation
+    const assistantMsg: Message = {
+      id: makeId(), role: 'assistant',
+      content: finalContent, createdAt: new Date().toISOString(),
+    }
+    saveSession(sessionId, [...messages, assistantMsg])
+
+    yield { type: 'done', content: '', sessionId }
   }
 }

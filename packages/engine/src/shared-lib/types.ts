@@ -97,3 +97,20 @@ export interface StreamChunk {
   content: string
   sessionId: string
 }
+
+export interface StreamChunk {
+  type: 'text' | 'tool_call' | 'tool_result' | 'done' | 'error'
+  content: string
+  sessionId: string
+  metadata?: {
+    userMessage?: Message
+  }
+  toolCall?: {
+    name: string
+    arguments: Record<string, unknown>
+  }
+  toolResult?: {
+    name: string
+    result: unknown
+  }
+}
