@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════════
 #  ORBINEX — One-Shot Deployment Script
-#  Deploys: Engine → Vercel | MCP Server → Railway | Plugin → Cloudflare
+#  Deploys: Engine → Render | MCP Server → Render | Plugin → Cloudflare
 #
 #  Usage: bash deploy.sh
 #  Time:  ~15 minutes total
@@ -83,53 +83,47 @@ fi
 cd ../..
 
 # ═══════════════════════════════════════════════════════════════════
-#  PART A — ENGINE on VERCEL
+#  PART A — ENGINE on RENDER
 # ═══════════════════════════════════════════════════════════════════
 
-step "STEP 2 — Deploy Engine to Vercel (your AI backend)"
+step "STEP 2 — Deploy Engine to Render (your AI backend)"
 
-echo "  The engine handles all AI conversations. It runs on Vercel for free."
+echo "  The engine handles all AI conversations. It runs on Render for free."
 echo
 echo "  ┌─────────────────────────────────────────────────────────┐"
-echo "  │  WHAT TO DO IN VERCEL (takes ~5 minutes)               │"
+echo "  │  WHAT TO DO IN RENDER (takes ~5 minutes)               │"
 echo "  │                                                         │"
-echo "  │  1. Open → https://vercel.com/new                      │"
-echo "  │  2. Click 'Import Git Repository'                       │"
-echo "  │  3. Find and select: $GITHUB_REPO"
-echo "  │  4. Set these EXACTLY:                                  │"
-echo "  │       Root Directory:  packages/engine                  │"
-echo "  │       Build Command:   npm run build                    │"
-echo "  │       Output Dir:      dist                             │"
-echo "  │       Install Command: npm install                      │"
-echo "  │  5. Click Deploy (first deploy — no env vars yet)       │"
-echo "  │  6. After deploy → Settings → Environment Variables     │"
-echo "  │     Add ALL of these:                                   │"
+echo "  │  1. Open → https://render.com                          │"
+echo "  │  2. Click 'New +' → 'Web Service'                       │"
+echo "  │  3. Connect your GitHub repo: $GITHUB_REPO"
+echo "  │  4. Configure:                                          │"
+echo "  │       Name: orbinex-engine                              │"
+echo "  │       Root Directory: packages/engine                   │"
+echo "  │       Build Command: npm install && npm run build       │"
+echo "  │       Start Command: node dist/index.js                 │"
+echo "  │  5. Select Free Tier                                    │"
+echo "  │  6. Add Environment Variables:                          │"
 echo "  │                                                         │"
-echo "  │     LLM_PROVIDER    = anthropic                         │"
-echo "  │     LLM_MODEL       = claude-haiku-4-5-20251001         │"
-echo "  │     LLM_API_KEY     = sk-ant-... ← your key             │"
-echo "  │     MCP_SERVER_URL  = (leave blank for now)             │"
-echo "  │     MCP_API_KEY     = orbinex-secret-2025               │"
-echo "  │     LLM_MAX_TOKENS  = 2048                              │"
-echo "  │     LLM_TEMPERATURE = 0.7                               │"
-echo "  │     MAX_HISTORY     = 20                                │"
+echo "  │       PORT              = 3001                          │"
+echo "  │       LLM_PROVIDER      = openai                        │"
+echo "  │       LLM_MODEL         = gpt-3.5-turbo                 │"
+echo "  │       LLM_API_KEY       = your-openai-key               │"
+echo "  │       MCP_SERVER_URL    = (will add after MCP deploy)   │"
+echo "  │       MCP_API_KEY       = orbinex-secret-2025           │"
 echo "  │                                                         │"
-echo "  │  7. Redeploy → Deployments → ... → Redeploy             │"
+echo "  │  7. Click 'Create Web Service'                          │"
 echo "  └─────────────────────────────────────────────────────────┘"
 echo
-echo "  GET YOUR ANTHROPIC KEY AT: https://console.anthropic.com"
-echo "  (Free \$5 credit on signup — enough for thousands of messages)"
-echo
-echo "  WANT FREE LOCAL AI INSTEAD? Use Ollama:"
-echo "     LLM_PROVIDER = ollama"
-echo "     LLM_MODEL    = qwen2.5"
-echo "     LLM_BASE_URL = https://your-ollama-server.com/v1"
-echo "     LLM_API_KEY  = (leave blank)"
+echo "  FREE ALTERNATIVES:"
+echo "  - OpenAI: https://platform.openai.com ($5 free credit)"
+echo "  - Anthropic: https://console.anthropic.com ($5 free credit)"
+echo "  - Google Gemini: https://aistudio.google.com (free)"
+echo "  - OpenRouter: https://openrouter.ai ($1 free credit)"
 
 pause
 
-ask "Paste your Engine URL from Vercel (e.g. https://orbinex-abc123.vercel.app)"; read -r ENGINE_URL_RAW
-ENGINE_URL="${ENGINE_URL_RAW%/}"  # strip trailing slash
+ask "Paste your Engine URL from Render (e.g. https://orbinex-engine.onrender.com)"; read -r ENGINE_URL_RAW
+ENGINE_URL="${ENGINE_URL_RAW%/}"
 [[ "$ENGINE_URL" != https://* ]] && ENGINE_URL="https://$ENGINE_URL"
 ok "Engine URL saved: $ENGINE_URL"
 
@@ -143,73 +137,71 @@ else
 fi
 
 # ═══════════════════════════════════════════════════════════════════
-#  PART B — MCP SERVER on RAILWAY
+#  PART B — MCP SERVER on RENDER
 # ═══════════════════════════════════════════════════════════════════
 
-step "STEP 3 — Deploy MCP Server to Railway (your tools & knowledge base)"
+step "STEP 3 — Deploy MCP Server to Render (your tools & knowledge base)"
 
 echo "  The MCP server runs your tools: weather, calculator, document search etc."
 echo
 echo "  ┌─────────────────────────────────────────────────────────┐"
-echo "  │  WHAT TO DO IN RAILWAY (takes ~5 minutes)              │"
+echo "  │  WHAT TO DO IN RENDER (takes ~5 minutes)               │"
 echo "  │                                                         │"
-echo "  │  1. Open → https://railway.app                         │"
-echo "  │  2. Sign up / Login (GitHub login recommended)          │"
-echo "  │  3. New Project → Deploy from GitHub Repo               │"
-echo "  │  4. Select: $GITHUB_REPO"
-echo "  │  5. Railway auto-detects Node.js — let it run           │"
-echo "  │  6. Once deployed → click the service → Variables tab   │"
-echo "  │     Add ALL of these:                                   │"
+echo "  │  1. Open → https://render.com                          │"
+echo "  │  2. Click 'New +' → 'Web Service'                       │"
+echo "  │  3. Connect your GitHub repo: $GITHUB_REPO"
+echo "  │  4. Configure:                                          │"
+echo "  │       Name: orbinex-mcp-server                          │"
+echo "  │       Root Directory: packages/mcp-server               │"
+echo "  │       Build Command: npm install && npm run build       │"
+echo "  │       Start Command: node dist/index.js                 │"
+echo "  │  5. Select Free Tier                                    │"
+echo "  │  6. Add Environment Variables:                          │"
 echo "  │                                                         │"
-echo "  │     PORT                  = 3002                        │"
-echo "  │     MCP_API_KEY           = orbinex-secret-2025         │"
-echo "  │     WEATHER_ENABLED       = true                        │"
-echo "  │     CITY_TOUR_ENABLED     = true                        │"
-echo "  │     COUNTRY_INFO_ENABLED  = true                        │"
-echo "  │     CURRENCY_ENABLED      = true                        │"
-echo "  │     RAG_ENABLED           = false                       │"
-echo "  │     WEATHER_UNITS         = metric                      │"
-echo "  │     EXPERIENCE_API_ENABLED= true                        │"
-echo "  │     EXPERIENCE_API_URL    = https://your-api.com/exp    │"
+echo "  │       PORT                  = 3002                      │"
+echo "  │       MCP_API_KEY           = orbinex-secret-2025       │"
+echo "  │       WEATHER_ENABLED       = true                      │"
+echo "  │       CITY_TOUR_ENABLED     = true                      │"
+echo "  │       COUNTRY_INFO_ENABLED  = true                      │"
+echo "  │       CURRENCY_ENABLED      = true                      │"
+echo "  │       WEATHER_UNITS         = metric                    │"
 echo "  │                                                         │"
-echo "  │  7. Settings → Networking → Generate Domain             │"
-echo "  │  8. Copy the .railway.app URL                           │"
+echo "  │  7. Click 'Create Web Service'                          │"
 echo "  └─────────────────────────────────────────────────────────┘"
-echo
-echo "  RAILWAY ROOT DIRECTORY: Set to 'packages/mcp-server' if asked"
-echo "  FREE TIER: 500 hours/month — enough for a real product"
 
 pause
 
-ask "Paste your MCP Server URL from Railway (e.g. https://orbinex-mcp.up.railway.app)"; read -r MCP_URL_RAW
+ask "Paste your MCP Server URL from Render (e.g. https://orbinex-mcp-server.onrender.com)"; read -r MCP_URL_RAW
 MCP_URL="${MCP_URL_RAW%/}"
 [[ "$MCP_URL" != https://* ]] && MCP_URL="https://$MCP_URL"
 ok "MCP URL saved: $MCP_URL"
 
 # Verify MCP
 info "Verifying MCP server tools..."
-HTTP=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$MCP_URL/tools" 2>/dev/null || echo "000")
+HTTP=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$MCP_URL/health" -H "authorization: Bearer orbinex-secret-2025" 2>/dev/null || echo "000")
 if [ "$HTTP" = "200" ]; then
-  TOOL_COUNT=$(curl -s --max-time 10 "$MCP_URL/tools" 2>/dev/null | grep -o '"name"' | wc -l || echo "?")
+  TOOL_COUNT=$(curl -s --max-time 10 "$MCP_URL/tools" -H "authorization: Bearer orbinex-secret-2025" 2>/dev/null | grep -o '"name"' | wc -l || echo "?")
   ok "MCP server live! Found $TOOL_COUNT tools ✓"
 else
   warn "Got HTTP $HTTP — MCP may still be starting up. Continue."
 fi
 
-# Now update Vercel with the MCP URL
+# Now update Render Engine with the MCP URL
 echo
 echo "  ┌─────────────────────────────────────────────────────────┐"
-echo "  │  UPDATE VERCEL with your MCP URL                       │"
+echo "  │  UPDATE ENGINE with your MCP URL                       │"
 echo "  │                                                         │"
-echo "  │  1. Go to your Vercel project → Settings → Env Vars    │"
-echo "  │  2. Edit MCP_SERVER_URL → paste:                       │"
-echo "  │     $MCP_URL"
-echo "  │  3. Click Save                                          │"
-echo "  │  4. Deployments → ... → Redeploy                       │"
+echo "  │  1. Go to your Render Dashboard → orbinex-engine        │"
+echo "  │  2. Click 'Environment' tab                             │"
+echo "  │  3. Add/Update:                                         │"
+echo "  │       MCP_SERVER_URL = $MCP_URL                         │"
+echo "  │       MCP_API_KEY     = orbinex-secret-2025             │"
+echo "  │  4. Click 'Save Changes'                                │"
+echo "  │  5. Click 'Manual Deploy' → 'Deploy latest commit'      │"
 echo "  └─────────────────────────────────────────────────────────┘"
 
 pause
-ok "Vercel updated with MCP URL"
+ok "Engine updated with MCP URL"
 
 # ═══════════════════════════════════════════════════════════════════
 #  PART C — PLUGIN on CLOUDFLARE PAGES
@@ -227,22 +219,17 @@ echo "  │                                                         │"
 echo "  │  1. Go to → https://pages.cloudflare.com               │"
 echo "  │  2. Create Account / Login (free)                       │"
 echo "  │  3. Workers & Pages → Create → Pages → Upload assets    │"
-echo "  │  4. Drag this file:                                     │"
-echo "  │     packages/plugin/dist/orbinex.iife.js               │"
-echo "  │  5. Give it any project name (e.g. orbinex-plugin)      │"
+echo "  │  4. Drag this folder:                                   │"
+echo "  │     packages/plugin/dist                                │"
+echo "  │  5. Project name: orbinex-plugin                        │"
 echo "  │  6. Click Deploy                                        │"
 echo "  │  Your URL: https://orbinex-plugin.pages.dev/orbinex.iife.js │"
 echo "  │                                                         │"
 echo "  ├─────────────────────────────────────────────────────────┤"
-echo "  │  OPTION B — Auto-deploy from GitHub (recommended)      │"
+echo "  │  OPTION B — Using Wrangler CLI (one command)           │"
 echo "  │                                                         │"
-echo "  │  1. Workers & Pages → Create → Pages → Connect to Git  │"
-echo "  │  2. Select: $GITHUB_REPO"
-echo "  │  3. Build settings:                                     │"
-echo "  │       Framework preset: None                            │"
-echo "  │       Build command:   cd packages/plugin && npm i && npm run build │"
-echo "  │       Output dir:      packages/plugin/dist             │"
-echo "  │  4. Deploy — auto-rebuilds on every git push            │"
+echo "  │  npx wrangler pages deploy packages/plugin/dist \       │"
+echo "  │    --project-name=orbinex-plugin                        │"
 echo "  └─────────────────────────────────────────────────────────┘"
 
 pause
@@ -281,7 +268,7 @@ echo "    src=\"$PLUGIN_URL\""
 echo "    data-tenant=\"my-company\""
 echo "    data-engine=\"$ENGINE_URL\""
 echo "    data-color=\"#6C5CE7\""
-echo "    data-title=\"Support Chat\""
+echo "    data-title=\"Orbinex AI\""
 echo "    data-welcome=\"Hi! How can I help you today?\""
 echo "  ></script>"
 echo
@@ -290,7 +277,7 @@ echo "  Works on WordPress, Shopify, Wix, raw HTML — anything."
 echo
 echo -e "${C}${B}  Verify services are working:${X}"
 echo "  curl $ENGINE_URL/health"
-echo "  curl $MCP_URL/tools | head -5"
+echo "  curl -H \"authorization: Bearer orbinex-secret-2025\" $MCP_URL/health"
 echo
 echo -e "${C}${B}  Customisation options:${X}"
 echo "  data-mode=\"bubble\"         → floating bubble (default)"

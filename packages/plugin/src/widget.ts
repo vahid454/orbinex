@@ -571,17 +571,28 @@ export class OrbinexWidget {
           else{const b=this.root.querySelector('#obx-live .obx-bbl');if(b)b.innerHTML=md(full)}
           this.scrollBot()
         }
-        else if(chunk.type==='tool_call'){
+      else if(chunk.type==='tool_call'){
           // Show tool calling indicator
           const toolMsg = `🔧 ${chunk.content}`;
-          if(first){ty.remove();first=false;this.addBubble('assistant',toolMsg,undefined,false).id='obx-live'}
-          else{const b=this.root.querySelector('#obx-live .obx-bbl');if(b)b.innerHTML=md(toolMsg + '\n\n' + full)}
-          this.scrollBot()
+          if(first){
+            ty.remove();
+            first=false;
+            this.addBubble('assistant',toolMsg,undefined,false).id='obx-live';
+          } else {
+            const b=this.root.querySelector('#obx-live .obx-bbl');
+            if(b) b.innerHTML = md(toolMsg);
+          }
+          full = ''; // Reset full text for tool response
+          this.scrollBot();
         }
         else if(chunk.type==='tool_result'){
-          // Optionally show tool result (can be hidden for cleaner UI)
+          // Tool result received - this will be followed by the actual AI response
           console.log('Tool result received:', chunk.toolResult);
-          // You can optionally display tool results
+          // Show a brief indicator that tool completed
+          const toolResultMsg = `✅ Tool completed`;
+          const b=this.root.querySelector('#obx-live .obx-bbl');
+          if(b) b.innerHTML = md(toolResultMsg);
+          this.scrollBot();
         }
         if(chunk.type==='done'||chunk.type==='error')break
       }
