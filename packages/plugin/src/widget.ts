@@ -25,7 +25,7 @@ const IC: Record<string, string> = {
   tool:    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>`,
 }
 
-// ─── Markdown renderer (Premium) ──────────────────────────────
+// ─── Markdown renderer ────────────────────────────────────────
 function safeEncode(str: string): string { try { return btoa(unescape(encodeURIComponent(str))) } catch { return '' } }
 function safeDecode(str: string): string { try { return decodeURIComponent(escape(atob(str))) } catch { return str } }
 function md(raw: string): string {
@@ -36,7 +36,7 @@ function md(raw: string): string {
   s = s.replace(/!\[([^\]]*)\]\(([^)]+)\)/g,'<div class="obx-img-wrap"><img src="$2" alt="$1" class="obx-img" loading="lazy"/><p class="obx-img-alt">$1</p></div>')
   s = s.replace(/^\|(.+)\|\r?\n\|[-:| ]+\|\r?\n((?:\|.+\|\r?\n?)+)/gm,(_,h,b)=>{
     const ths=h.split('|').filter((x:string)=>x.trim()).map((x:string)=>`<th>${x.trim()}</th>`).join('')
-    const rows=b.trim().split('\n').map((r:string)=>'<td>'+r.split('|').filter((x:string)=>x.trim()).map((x:string)=>`<tr>${x.trim()}</tr>`).join('')+'</tr>').join('')
+    const rows=b.trim().split('\n').map((r:string)=>'<td>'+r.split('|').filter((x:string)=>x.trim()).map((x:string)=>`<td>${x.trim()}</td>`).join('')+'</tr>').join('')
     return `<div class="obx-tbl-w"><table class="obx-tbl"><thead><tr>${ths}</tr></thead><tbody>${rows}</tbody></table></div>`
   })
   s = s.replace(/^#{4} (.+)$/gm,'<h4>$1</h4>').replace(/^#{3} (.+)$/gm,'<h3>$1</h3>')
@@ -76,6 +76,8 @@ export class OrbinexWidget {
   private dragOn=false; private dx=0; private dy=0
   private resizeOn=false; private resizeX=0; private resizeY=0
   private uploadedDoc:string|null=null
+  private prevWidth = 380
+  private prevHeight = 520
 
   constructor(cfg:WidgetConfig){
     this.cfg=cfg
@@ -102,7 +104,7 @@ export class OrbinexWidget {
   private ft(){return new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}
   private esc(s:string){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
 
-  // ─── CSS (Premium enterprise design) ────────────────────────────
+  // ─── Premium CSS ─────────────────────────────────────────────
   private css(){
     const p=this.cfg.primaryColor||'#6C5CE7'
     const right=this.cfg.position!=='bottom-left'
@@ -129,8 +131,7 @@ export class OrbinexWidget {
   --tx:#1a1a1a;--tx2:#595959;--tx3:#8b8b8b;
   --shadow:0 2px 8px rgba(0,0,0,.08),0 16px 48px rgba(0,0,0,.12);
 }
-
-/* Launcher button - premium float */
+/* Launcher button */
 #obx-btn{
   width:64px;height:64px;border-radius:50%;border:none;cursor:pointer;
   background:var(--p);color:#fff;
@@ -144,12 +145,10 @@ export class OrbinexWidget {
 #obx-btn:hover{transform:scale(1.12);box-shadow:0 12px 32px rgba(0,0,0,.2),0 8px 20px color-mix(in srgb,var(--p) 50%,transparent)}
 #obx-btn:active{transform:scale(.92)}
 #obx-btn svg{width:28px;height:28px}
-#obx-btn{bottom:20px}
 #obx-badge{position:absolute;top:-6px;right:-6px;min-width:22px;height:22px;padding:0 6px;
   background:#ff3b30;border:2px solid white;border-radius:11px;
   font-size:10px;font-weight:700;color:#fff;display:none;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(255,59,48,.4)}
 #obx.open #obx-btn{opacity:0;pointer-events:none;transform:scale(.6) translateY(8px)}
-
 /* Chat window */
 #obx-win{
   position:fixed;${right?'right:20px':'left:20px'};bottom:14px;
@@ -172,7 +171,6 @@ export class OrbinexWidget {
 #obx-resize:active{opacity:1;background:linear-gradient(135deg,transparent 60%,var(--p) 60%)}
 @keyframes obx-open{from{opacity:0;transform:scale(.82) translateY(24px);filter:blur(4px)}to{opacity:1;transform:scale(1) translateY(0);filter:blur(0)}}
 #obx-win.drag,#obx-win.resize{transition:none;animation:none}
-
 /* History panel */
 #obx-hist{
   position:absolute;inset:0 auto 0 0;
@@ -187,7 +185,6 @@ export class OrbinexWidget {
 #obx-hist.on{width:280px;box-shadow:12px 0 40px rgba(0,0,0,.15)}
 #obx-hist-bg{display:none;position:absolute;inset:0;z-index:19;background:rgba(0,0,0,.25);border-radius:var(--r)}
 #obx-hist.on ~ #obx-hist-bg{display:block}
-
 #obx-hist-hd{
   height:68px;display:flex;align-items:center;justify-content:space-between;
   padding:0 16px;border-bottom:1px solid var(--bd);flex-shrink:0;
@@ -199,7 +196,6 @@ export class OrbinexWidget {
   font-weight:700;font-size:14px;color:#fff;flex-shrink:0}
 .obx-hist-lbl{font-size:14px;font-weight:600;color:var(--tx)}
 .obx-hist-sub{font-size:11px;color:var(--tx3);margin-top:2px}
-
 .obx-new-btn{
   display:flex;align-items:center;justify-content:center;gap:8px;margin:0;padding:16px;
   background:linear-gradient(135deg,var(--p),color-mix(in srgb,var(--p) 85%,#000));
@@ -209,11 +205,9 @@ export class OrbinexWidget {
 .obx-new-btn:hover{background:linear-gradient(135deg,color-mix(in srgb,var(--p) 110%,#fff),color-mix(in srgb,var(--p) 90%,#000));transform:translateY(-1px)}
 .obx-new-btn:active{transform:translateY(0);box-shadow:inset 0 1px 2px rgba(0,0,0,.2)}
 .obx-new-btn svg{width:20px;height:20px}
-
 #obx-sess{flex:1;overflow-y:auto;padding:8px 8px 16px}
 #obx-sess::-webkit-scrollbar{width:4px}
 #obx-sess::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:2px}
-
 .obx-si{
   display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;cursor:pointer;
   transition:all .15s;margin-bottom:4px;
@@ -230,21 +224,18 @@ export class OrbinexWidget {
 .obx-si-del svg{width:14px;height:14px}
 .obx-si:hover .obx-si-del{opacity:1}
 .obx-si-del:hover{color:#ff3b30;background:rgba(255,59,48,.1);transform:scale(1.1)}
-
 /* Main chat area */
-#obx-main{flex:1;display:flex;flex-direction:column;min-width:0;position:relative}
-
-/* Header - for dragging */
+#obx-main{flex:1;display:flex;flex-direction:column;min-height:0;position:relative}
+/* Header - fixed height, no shrink */
 #obx-hd{
-  height:68px;display:flex;align-items:center;gap:10px;
+  height:68px;flex-shrink:0;display:flex;align-items:center;gap:10px;
   padding:0 16px;border-bottom:1px solid var(--bd);
   background:linear-gradient(180deg,var(--bg) 0%,color-mix(in srgb,var(--bg) 95%,var(--p)) 100%);
-  flex-shrink:0;
   user-select:none;cursor:grab;
   box-shadow:0 2px 8px rgba(0,0,0,.04);
 }
 #obx-win.drag #obx-hd{cursor:grabbing}
-.obx-hd-av{width:40px;height:40px;border-radius:12px;
+.obx-hd-av{width:40px;height:40px;border-radius:12px;flex-shrink:0;
   background:linear-gradient(135deg,var(--p),color-mix(in srgb,var(--p) 60%,#000));
   display:flex;align-items:center;justify-content:center;
   font-weight:700;font-size:14px;color:#fff;pointer-events:none;
@@ -252,58 +243,50 @@ export class OrbinexWidget {
   animation:obx-avatar-pulse 3s ease-in-out infinite;
 }
 @keyframes obx-avatar-pulse{0%,100%{transform:scale(1);box-shadow:0 4px 12px color-mix(in srgb,var(--p) 35%,transparent)}50%{transform:scale(1.05);box-shadow:0 6px 16px color-mix(in srgb,var(--p) 50%,transparent)}}
-.obx-hd-info{flex:1;pointer-events:none}
+.obx-hd-info{flex:1;min-width:0;overflow:hidden;pointer-events:none}
 .obx-hd-name{font-size:15px;font-weight:600;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .obx-hd-st{font-size:11px;color:var(--tx3);display:flex;align-items:center;gap:5px;margin-top:2px}
 .obx-dot{width:7px;height:7px;border-radius:50%;background:#22c55e;
   animation:obx-pulse 2.5s infinite;box-shadow:0 0 0 0 rgba(34,197,94,.4)}
 @keyframes obx-pulse{0%,100%{box-shadow:0 0 0 0 rgba(34,197,94,.4)}60%{box-shadow:0 0 0 5px rgba(34,197,94,0)}}
-.obx-acts{display:flex;gap:4px}
-
+.obx-acts{display:flex;gap:4px;flex-shrink:0}
 .obx-ib{width:36px;height:36px;border-radius:10px;background:none;border:none;
   cursor:pointer;color:var(--tx2);display:flex;align-items:center;justify-content:center;
-  transition:all .12s}
+  transition:all .12s;flex-shrink:0}
 .obx-ib svg{width:18px;height:18px}
 .obx-ib:hover{background:color-mix(in srgb,var(--p) 15%,transparent);color:var(--p);transform:scale(1.08)}
 .obx-ib:active{transform:scale(.92)}
-
 /* Messages */
-#obx-msgs{flex:1;overflow-y:auto;padding:20px 14px;display:flex;flex-direction:column;gap:4px;scroll-behavior:smooth;background:linear-gradient(180deg,var(--bg) 0%,color-mix(in srgb,var(--bg) 98%,var(--p)) 100%)}
+#obx-msgs{flex:1;overflow-y:auto;min-height:0;padding:20px 14px;display:flex;flex-direction:column;gap:4px;scroll-behavior:smooth;background:linear-gradient(180deg,var(--bg) 0%,color-mix(in srgb,var(--bg) 98%,var(--p)) 100%)}
 #obx-msgs::-webkit-scrollbar{width:6px}
 #obx-msgs::-webkit-scrollbar-track{background:transparent}
 #obx-msgs::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--bd2) 120%,#fff);border-radius:3px}
-
 .obx-date{text-align:center;margin:16px 0 8px}
 .obx-date span{font-size:11px;color:var(--tx3);background:var(--bg2);padding:4px 14px;border-radius:20px;border:1px solid var(--bd)}
-
 .obx-row{display:flex;flex-direction:column;margin-bottom:4px;animation:obx-msg-enter .4s cubic-bezier(.34,.84,.68,1.08)}
 .obx-row-u{align-items:flex-end}
 .obx-row-a{align-items:flex-start}
 .obx-inner{display:flex;align-items:flex-end;gap:8px;max-width:85%}
 .obx-row-u .obx-inner{flex-direction:row-reverse}
-.obx-av-sm{width:28px;height:28px;border-radius:50%;
+.obx-av-sm{width:28px;height:28px;border-radius:50%;flex-shrink:0;
   background:linear-gradient(135deg,var(--p),color-mix(in srgb,var(--p) 55%,#000));
   display:flex;align-items:center;justify-content:center;
   font-size:10px;font-weight:700;color:#fff}
-
 .obx-bbl{padding:12px 16px;font-size:14px;line-height:1.5;word-break:break-word;border-radius:18px}
 .obx-row-u .obx-bbl{background:var(--p);color:#fff;border-radius:18px 18px 4px 18px}
 .obx-row-a .obx-bbl{background:var(--bg2);color:var(--tx);border:1px solid var(--bd);border-radius:18px 18px 18px 4px}
-
 .obx-meta{display:flex;align-items:center;gap:8px;padding:4px 8px}
 .obx-mt{font-size:10px;color:var(--tx3)}
 .obx-cp{background:none;border:none;cursor:pointer;color:var(--tx3);padding:4px;border-radius:6px;opacity:0;transition:all .15s;display:flex}
 .obx-row-a:hover .obx-cp{opacity:1}
 .obx-cp:hover{color:var(--p);background:var(--p15)}
 .obx-cp svg{width:12px;height:12px}
-
 .obx-typing{display:flex;align-items:center;gap:6px;padding:8px 0}
 .obx-typing span{width:8px;height:8px;background:var(--tx2);border-radius:50%;animation:obx-bb 1.4s infinite}
 .obx-typing span:nth-child(2){animation-delay:.2s}
 .obx-typing span:nth-child(3){animation-delay:.4s}
 @keyframes obx-bb{0%,80%,100%{transform:scale(.4);opacity:.2}40%{transform:scale(1);opacity:1}}
 @keyframes obx-msg-enter{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-
 .obx-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px 24px;gap:16px}
 .obx-ei{width:64px;height:64px;border-radius:16px;background:linear-gradient(135deg,var(--p),color-mix(in srgb,var(--p) 55%,#1a0a6b));display:flex;align-items:center;justify-content:center}
 .obx-ei svg{width:32px;height:32px;stroke:#fff}
@@ -312,20 +295,31 @@ export class OrbinexWidget {
 .obx-chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:8px}
 .obx-chip{background:var(--bg2);border:1px solid var(--bd2);padding:6px 12px;border-radius:20px;font-size:12px;cursor:pointer}
 .obx-chip:hover{background:var(--p15);border-color:var(--p);color:var(--p)}
-
 /* Input bar */
-#obx-bar{border-top:1px solid var(--bd);background:var(--bg);padding:12px}
+#obx-bar{border-top:1px solid var(--bd);background:var(--bg);padding:12px;flex-shrink:0}
 #obx-input-row{display:flex;align-items:flex-end;gap:8px}
 #obx-in{flex:1;border:1px solid var(--bd2);border-radius:20px;padding:10px 14px;background:var(--bg2);color:var(--tx);font-size:14px;resize:none;outline:none;max-height:100px}
 #obx-in:focus{border-color:var(--p);box-shadow:0 0 0 2px var(--p15)}
-.obx-bar-btns{display:flex;gap:6px}
-#obx-send{width:36px;height:36px;border-radius:50%;background:var(--p);color:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.obx-bar-btns{display:flex;gap:6px;flex-shrink:0}
+#obx-send{
+  width:40px;height:40px;flex-shrink:0;border-radius:50%;
+  background:var(--p);color:#fff;border:none;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:all 0.15s;
+}
+#obx-send svg{width:20px;height:20px;display:block}
 #obx-send:hover{transform:scale(1.05)}
 #obx-send.stop{background:#ff3b30}
 #obx-foot{font-size:10px;color:var(--tx3);text-align:center;margin-top:8px}
-
-#obx[data-mode=fullpage] #obx-btn{display:none}
-#obx[data-mode=fullpage] #obx-win,#obx.fs #obx-win{position:fixed!important;top:0!important;left:0!important;right:0!important;bottom:0!important;width:100vw!important;height:100vh!important;border-radius:0}
+/* Fullscreen */
+#obx[data-mode=fullpage] #obx-btn,
+#obx.fs #obx-btn{display:none}
+#obx[data-mode=fullpage] #obx-win,
+#obx.fs #obx-win{
+  position:fixed !important;top:0 !important;left:0 !important;right:0 !important;bottom:0 !important;
+  width:100vw !important;height:100vh !important;max-width:100vw !important;max-height:100vh !important;
+  border-radius:0 !important;border:none !important;margin:0 !important;animation:none !important;transform:none !important;
+}
 #obx.fs #obx-resize{display:none}
 @media(max-width:480px){#obx-win{width:calc(100vw - 32px)!important;max-height:calc(100vh - 120px)!important}}
 `
@@ -487,7 +481,27 @@ export class OrbinexWidget {
     const b=this.root.querySelector('#obx-th')!; b.innerHTML=this.dark?IC.sun:IC.moon
     try{localStorage.setItem('obx_theme',this.dark?'dark':'light')}catch{}
   }
-  private togFs(){this.fullscreen=!this.fullscreen; this.root.classList.toggle('fs',this.fullscreen); const b=this.root.querySelector('#obx-fs')!; b.innerHTML=this.fullscreen?IC.shrink:IC.expand}
+  private togFs() {
+    const win = this.root.querySelector('#obx-win') as HTMLElement;
+    if (!this.fullscreen) {
+      this.prevWidth = win.offsetWidth;
+      this.prevHeight = win.offsetHeight;
+      this.root.classList.add('fs');
+      win.style.position = '';
+      win.style.left = '';
+      win.style.top = '';
+      win.style.width = '';
+      win.style.height = '';
+    } else {
+      this.root.classList.remove('fs');
+      win.style.width = `${this.prevWidth}px`;
+      win.style.height = `${this.prevHeight}px`;
+      win.style.position = 'fixed';
+    }
+    this.fullscreen = !this.fullscreen;
+    const btn = this.root.querySelector('#obx-fs')!;
+    btn.innerHTML = this.fullscreen ? IC.shrink : IC.expand;
+  }
   private dragStart(e:any){if(this.fullscreen)return; const w=this.root.querySelector('#obx-win') as HTMLElement; const r=w.getBoundingClientRect(); this.dragOn=true; w.classList.add('drag'); this.dx=e.clientX-r.left; this.dy=e.clientY-r.top}
   private dragMove(e:any){if(!this.dragOn)return; const w=this.root.querySelector('#obx-win') as HTMLElement; let x=Math.max(0,Math.min(e.clientX-this.dx,window.innerWidth-w.offsetWidth)); let y=Math.max(0,Math.min(e.clientY-this.dy,window.innerHeight-w.offsetHeight)); w.style.position='fixed'; w.style.left=x+'px'; w.style.top=y+'px'; w.style.right='auto'; w.style.bottom='auto'}
   private dragEnd(){this.dragOn=false; this.root.querySelector('#obx-win')?.classList.remove('drag')}
@@ -553,54 +567,106 @@ export class OrbinexWidget {
   }
   private addTyping(){const c=this.root.querySelector('#obx-msgs')!; c.querySelector('.obx-empty')?.remove(); const av=this.initials()[0]; const el=document.createElement('div'); el.className='obx-row obx-row-a'; el.id='obx-ty'; el.innerHTML=`<div class="obx-inner"><div class="obx-av-sm">${av}</div><div class="obx-bbl"><div class="obx-typing"><span></span><span></span><span></span></div></div></div>`; c.appendChild(el); this.scrollBot(); return el}
   private scrollBot(){const c=this.root.querySelector('#obx-msgs'); if(c)requestAnimationFrame(()=>{c.scrollTop=c.scrollHeight})}
-  private async send(){
-    if(this.streaming){this.abort?.abort();return}
-    const inp=this.root.querySelector('#obx-in') as HTMLTextAreaElement
-    let text=inp.value.trim(); if(!text)return
-    const userMsg=text
-    inp.value=''; inp.style.height='auto'
-    if(this.uploadedDoc){text=`[Context: ${this.uploadedDoc.slice(0,2000)}]\n\n${text}`}
-    this.addBubble('user',userMsg)
-    const ty=this.addTyping(); this.setStream(true)
-    let full=''; let first=true; this.abort=new AbortController()
-    try{
-      for await(const chunk of this.api.stream(text,this.abort.signal)){
-        if(chunk.type==='text'){
-          full+=chunk.content
-          if(first){ty.remove();first=false;this.addBubble('assistant',full,undefined,false).id='obx-live'}
-          else{const b=this.root.querySelector('#obx-live .obx-bbl');if(b)b.innerHTML=md(full)}
-          this.scrollBot()
-        }
-      else if(chunk.type==='tool_call'){
-          // Show tool calling indicator
-          const toolMsg = `🔧 ${chunk.content}`;
-          if(first){
-            ty.remove();
-            first=false;
-            this.addBubble('assistant',toolMsg,undefined,false).id='obx-live';
-          } else {
-            const b=this.root.querySelector('#obx-live .obx-bbl');
-            if(b) b.innerHTML = md(toolMsg);
+  private async send() {
+    if (this.streaming) {
+      this.abort?.abort();
+      return;
+    }
+    const inp = this.root.querySelector('#obx-in') as HTMLTextAreaElement;
+    let text = inp.value.trim();
+    if (!text) return;
+    const userMsg = text;
+    inp.value = '';
+    inp.style.height = 'auto';
+    if (this.uploadedDoc) {
+      text = `[Context: ${this.uploadedDoc.slice(0, 2000)}]\n\n${text}`;
+    }
+    this.addBubble('user', userMsg);
+
+    // Show typing indicator (three‑dots bubble)
+    const typingBubble = this.addTyping();
+    // Also set the header to "Thinking…"
+    this.setStream(true);
+
+    let fullAnswer = '';
+    let hasReceivedText = false;
+    this.abort = new AbortController();
+
+    try {
+      for await (const chunk of this.api.stream(text, this.abort.signal)) {
+        if (chunk.type === 'text') {
+          // First real text → remove the typing bubble
+          if (!hasReceivedText) {
+            hasReceivedText = true;
+            typingBubble?.remove();
+            // Create a new assistant bubble that will accumulate the answer
+            this.addBubble('assistant', '', undefined, false).id = 'obx-live';
           }
-          full = ''; // Reset full text for tool response
+          fullAnswer += chunk.content;
+          const liveBubble = this.root.querySelector('#obx-live .obx-bbl');
+          if (liveBubble) liveBubble.innerHTML = md(fullAnswer);
+          this.scrollBot();
+        } 
+        else if (chunk.type === 'tool_call') {
+          // Keep the typing bubble – only show tool call as temporary message
+          const toolMsg = `🔧 ${chunk.content}`;
+          // If we haven't created a live bubble yet, show the tool call in the same bubble
+          if (!hasReceivedText) {
+            const liveBubble = this.root.querySelector('#obx-live .obx-bbl');
+            if (liveBubble) liveBubble.innerHTML = md(toolMsg);
+            else {
+              // No bubble yet – create one temporarily
+              this.addBubble('assistant', toolMsg, undefined, false).id = 'obx-live';
+            }
+          } else {
+            // If we already have a text bubble, just update it (should not happen)
+            const liveBubble = this.root.querySelector('#obx-live .obx-bbl');
+            if (liveBubble) liveBubble.innerHTML = md(toolMsg);
+          }
           this.scrollBot();
         }
-        else if(chunk.type==='tool_result'){
-          // Tool result received - this will be followed by the actual AI response
-          console.log('Tool result received:', chunk.toolResult);
-          // Show a brief indicator that tool completed
-          const toolResultMsg = `✅ Tool completed`;
-          const b=this.root.querySelector('#obx-live .obx-bbl');
-          if(b) b.innerHTML = md(toolResultMsg);
+        else if (chunk.type === 'tool_result') {
+          // Show "✅ Tool completed" but keep typing indicator alive
+          const resultMsg = `✅ Tool completed`;
+          const liveBubble = this.root.querySelector('#obx-live .obx-bbl');
+          if (liveBubble) liveBubble.innerHTML = md(resultMsg);
           this.scrollBot();
         }
-        if(chunk.type==='done'||chunk.type==='error')break
+
+        if (chunk.type === 'done' || chunk.type === 'error') break;
       }
-    }catch(e:any){if(e?.name!=='AbortError'){ty.remove();this.addBubble('assistant','Sorry, something went wrong. Please try again.','',false)}}
-    ty.remove()
-    const live=this.root.querySelector('#obx-live')
-    if(live){live.removeAttribute('id');if(full){this.sess.messages.push({role:'assistant',content:full,time:this.ft()});this.sess.updatedAt=Date.now();this.save()}}
-    this.setStream(false); this.abort=null; setTimeout(()=>(this.root.querySelector('#obx-in') as HTMLElement)?.focus(),50)
+    } catch (err: any) {
+      if (err?.name !== 'AbortError') {
+        typingBubble?.remove();
+        this.addBubble('assistant', 'Sorry, something went wrong. Please try again.', '', false);
+      }
+    }
+
+    // Final cleanup: remove typing bubble if it still exists (e.g., no text ever received)
+    if (typingBubble?.parentNode) typingBubble.remove();
+
+    // Save the final assistant message
+    const liveElem = this.root.querySelector('#obx-live');
+    if (liveElem) {
+      liveElem.removeAttribute('id');
+      if (fullAnswer) {
+        this.sess.messages.push({
+          role: 'assistant',
+          content: fullAnswer,
+          time: this.ft(),
+        });
+        this.sess.updatedAt = Date.now();
+        this.save();
+      }
+    } else if (fullAnswer) {
+      // Fallback: add bubble if it doesn't exist
+      this.addBubble('assistant', fullAnswer, undefined, true);
+    }
+
+    // Stop the streaming state (header returns to "Online")
+    this.setStream(false);
+    this.abort = null;
+    setTimeout(() => (this.root.querySelector('#obx-in') as HTMLElement)?.focus(), 50);
   }
   private setStream(on:boolean){
     this.streaming=on
